@@ -2,14 +2,21 @@ The tutorial
 ============
 A case of typical usage is presented here.
 
-To use real code, take a look at the `showcase notebook <https://github.com/ladisk/pyEMA/blob/master/pyEMA%20Showcase.ipynb>`_.
+To use real code, take a look at the `showcase notebook <https://github.com/sdypy/sdypy-EMA/blob/main/EMA%20Showcase.ipynb>`_.
+
+Import ``EMA`` module:
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. code:: python
+
+    from sdypy import EMA
 
 Instance of the ``Model`` class
 -------------------------------
 
 .. code:: python
 
-    a = pyEMA.Model(
+    a = EMA.Model(
         frf_matrix,
         frequency_array,
         lower=10,
@@ -118,13 +125,13 @@ If the ``driving_point`` argument was passed to the ``Model`` class, the modal s
 
 Reconstruction on ``c`` usign poles from ``a``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-``pyEMA`` enables the use of the poles identified using one set of measurments, to identify the modal constants using a different set of measurments.
+``sdypy-EMA`` enables the use of the poles identified using one set of measurments, to identify the modal constants using a different set of measurments.
 
 Create a new object using different set of FRFs:
 
 .. code:: python
 
-    c = pyEMA.Model(
+    c = EMA.Model(
         frf_matrix,
         frequency_array,
         lower=10,

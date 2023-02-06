@@ -3,10 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to pyEMA's documentation!
+Welcome to sdypy-EMA documentation!
 =================================
 
-This is the documentation for pyEMA package. Check out the project source_.
+This is the documentation for ``sdypy-EMA`` package, part of ``sdypy``. Check out the project source_.
 
 .. toctree::
     :maxdepth: 2
@@ -17,5 +17,5 @@ This is the documentation for pyEMA package. Check out the project source_.
 
 
 
-.. _source: https://github.com/ladisk/pyEMA
+.. _source: https://github.com/sdypy/sdypy-EMA
 

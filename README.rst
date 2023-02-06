@@ -1,5 +1,5 @@
-pyEMA
-=====
+sdypy-EMA
+=========
 
 Experimental and operational modal analysis
 
@@ -16,12 +16,20 @@ New in version 0.26
 Basic usage
 -----------
 
+Import ``EMA`` module:
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. code:: python
+
+    from sdypy import EMA
+
+
 Make an instance of ``Model`` class:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: python
 
-   a = pyema.Model(
+   a = EMA.Model(
        frf_matrix,
        frequency_array,
        lower=50,
@@ -80,7 +88,7 @@ where **H** is reconstructed FRF matrix and **A** is a matrix of modal constants
 
 .. code:: python
 
-    c = pyema.Model(frf_matrix, frequency_array, lower=50, upper=10000, pol_order_high=60)
+    c = EMA.Model(frf_matrix, frequency_array, lower=50, upper=10000, pol_order_high=60)
 
     H, A = c.get_constants(whose_poles=a)
 

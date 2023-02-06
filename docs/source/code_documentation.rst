@@ -6,7 +6,7 @@ Code documentation
 The ``Model`` class
 -------------------
 
-.. autoclass:: pyEMA.Model
+.. autoclass:: sdypy.EMA.Model
     :members:
 
 
@@ -26,20 +26,20 @@ The ``SelectPoles`` class is called from the ``Model`` class by calling ``select
 
 In this case, the ``Model`` argument is passed automatically.
 
-.. autoclass:: pyEMA.pole_picking.SelectPoles
+.. autoclass:: sdypy.EMA.pole_picking.SelectPoles
     :members:
 
 
 Tools
 -----
 
-.. automodule:: pyEMA.tools
+.. automodule:: sdypy.EMA.tools
     :members:
 
 
 Normal modes
 ------------
 
-.. autofunction:: pyEMA.normal_modes.complex_to_normal_mode
+.. autofunction:: sdypy.EMA.normal_modes.complex_to_normal_mode
 
-.. autofunction:: pyEMA.normal_modes._large_normal_mode_approx
+.. autofunction:: sdypy.EMA.normal_modes._large_normal_mode_approx
