@@ -5,6 +5,8 @@ Experimental and operational modal analysis
 
 Check out the `documentation`_.
 
+This project is a continuation of the `pyEMA`_ project.
+
 New in version 0.26
 -------------------
 - include (or exclude) upper and lower residuals
@@ -95,16 +97,11 @@ where **H** is reconstructed FRF matrix and **A** is a matrix of modal constants
 |DOI|
 |Build Status|
 
-.. _documentation: https://pyema.readthedocs.io/en/latest/index.html
+.. _documentation: https://sdypy-ema.readthedocs.io/en/latest/
 
 .. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4016671.svg?
    :target: https://doi.org/10.5281/zenodo.4016671
 
-.. |Build Status| image:: https://travis-ci.com/ladisk/pyEMA.svg?branch=master
-   :target: https://travis-ci.com/ladisk/pyEMA
-
 .. _sdypy: https://github.com/sdypy/sdypy
 
-.. _sdypy-EMA: https://github.com/ladisk/sdypy-EMA
-
-
+.. _pyEMA: https://github.com/ladisk/pyEMA

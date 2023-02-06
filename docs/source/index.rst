@@ -8,6 +8,8 @@ Welcome to sdypy-EMA documentation!
 
 This is the documentation for ``sdypy-EMA`` package, part of ``sdypy``. Check out the project source_.
 
+This project is a continuation of the `pyEMA`_ project.
+
 .. toctree::
     :maxdepth: 2
     :caption: Contents
@@ -19,3 +21,4 @@ This is the documentation for ``sdypy-EMA`` package, part of ``sdypy``. Check ou
 
 .. _source: https://github.com/sdypy/sdypy-EMA
 
+.. _pyEMA: https://github.com/ladisk/pyEMA
