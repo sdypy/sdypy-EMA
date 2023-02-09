@@ -5,7 +5,7 @@ Experimental and operational modal analysis
 
 Check out the `documentation`_.
 
-This project is a continuation of the `pyEMA`_ project.
+This project is successor of the `pyEMA`_ project. pyEMA is no longer developed after version 0.26.
 
 New in version 0.26
 -------------------

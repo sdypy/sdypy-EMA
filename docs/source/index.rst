@@ -8,7 +8,7 @@ Welcome to sdypy-EMA documentation!
 
 This is the documentation for ``sdypy-EMA`` package, part of ``sdypy``. Check out the project source_.
 
-This project is a continuation of the `pyEMA`_ project.
+This project is successor of the `pyEMA`_ project. pyEMA is no longer developed after version 0.26.
 
 .. toctree::
     :maxdepth: 2
