@@ -162,7 +162,7 @@ class Model():
         else:
             self.frf = np.concatenate((self.frf, new_frf.T), axis=0)
 
-    def add_frf_from_uff(self, uff_filename):
+    def read_uff(self, uff_filename):
         """
         Add FRFs from a UFF file.
 
@@ -544,7 +544,7 @@ class Model():
         for i, f in enumerate(self.nat_freq):
             print(f'{i+1}) {f:6.1f}\t{self.nat_xi[i]:5.4f}')
     
-    def export_to_uff(self, filename, name, rsp_dir, ref_dir):
+    def write_uff(self, filename, name, rsp_dir, ref_dir):
         """
         Export modal data to a UFF file.
 
@@ -561,7 +561,7 @@ class Model():
         :param ref_dir: Reference direction:
              same options as for parameter rsp_dir  
         """
-
+        print('Warning! This is an experimental feature and will be further developed.')
         eigval_data_to_write = {'type':58,
                 'func_type': 1, #0 - general; 22 - eigenvalue
                 'rsp_node': 1, #
