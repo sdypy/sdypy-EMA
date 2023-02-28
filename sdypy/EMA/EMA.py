@@ -13,6 +13,11 @@ try:
 except:
     print('WARNING: tkinter is not istalled or not accessible. Stability chart is not available.')
 
+try:
+    import pyuff
+except:
+    print('WARNING: pyuff is not installed or not accessible. Importing FRF data from the UFF file is not available.')
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
@@ -39,7 +44,8 @@ class Model():
                  pyfrf=False,
                  get_partfactors=False,
                  driving_point=None,
-                 frf_type='accelerance'):
+                 frf_type='accelerance',
+                 frf_from_uff=False):
         """
         :param frf: Frequency response function matrix
             A ndarray with shape `(n_locations, n_frequency_points)`.
@@ -62,6 +68,8 @@ class Model():
         :param frf_type: type of the Frequency Response Function. Must be 'receptance',
             'mobility' or 'accelerance'. The correct FRF type selection is important for
             the LSFD algorithm.
+        :param frf_from_uff: add FRFs from a UFF file
+        :type frf_from_uff: bool
         """
         try:
             self.lower = float(lower)
@@ -77,9 +85,9 @@ class Model():
         if self.upper < self.lower:
             raise Exception('upper must be greater than lower')
 
-        if pyfrf:
+        if pyfrf or frf_from_uff:
             self.frf = 0
-        elif not pyfrf and frf is not None and freq is not None:
+        elif not pyfrf and not frf_from_uff and frf is not None and freq is not None:
             try:
                 self.frf = np.asarray(frf)
             except:
@@ -109,7 +117,7 @@ class Model():
         if self.pol_order_high <= 0:
             raise Exception('pol_order_high must be more than zero')
 
-        if not pyfrf:
+        if not pyfrf and not frf_from_uff:
             self.omega = 2 * np.pi * self.freq
             if dt is None:
                 self.sampling_time = 1/(2*self.freq[-1])
@@ -153,6 +161,42 @@ class Model():
             self.frf = new_frf.T
         else:
             self.frf = np.concatenate((self.frf, new_frf.T), axis=0)
+
+    def read_uff(self, uff_filename):
+        """
+        Add FRFs from a UFF file.
+
+        :param uff_filename: The file to read.
+        :type uff_filename: str
+        """
+        if type(uff_filename) != str:
+            raise Exception('uff_filename must be a string')
+        uff_file = pyuff.UFF(uff_filename)
+        set_types = uff_file.get_set_types()
+        ind58 = np.argwhere(set_types==58)[:,0]
+        uff_data = uff_file.read_sets()
+        uffFRF = np.asarray([uff_data[ind]['data'] for ind in ind58 if uff_data[ind]['func_type'] == 4])
+        ufffreq = np.asarray([uff_data[ind]['x'] for ind in ind58 if uff_data[ind]['func_type'] == 4])[0]
+
+        sel = (ufffreq >= 1.0e-1)
+        cutoff_ind = np.argmin(np.abs(ufffreq[sel] - self.upper))
+
+        self.freq = ufffreq[sel]
+        self.freq = self.freq[:cutoff_ind]
+        self.omega = 2 * np.pi * self.freq
+        self.sampling_time = 1/(2*self.freq[-1])
+
+        self.frf = uffFRF[:, sel]
+        self.frf = self.frf[:, :cutoff_ind]
+
+        if uff_data[ind58[0]]['ordinate_spec_data_type'] == 8:
+            self.frf_type = 'receptance'
+        elif uff_data[ind58[0]]['ordinate_spec_data_type'] == 11:
+            self.frf_type = 'mobility'
+        elif uff_data[ind58[0]]['ordinate_spec_data_type'] == 12:
+            self.frf_type = 'accelerance'
+        else:
+            raise Exception('frf_type cannot be obtained from the uff file')
 
     def get_poles(self, method='lscf', show_progress=True):
         """Compute poles based on polynomial approximation of FRF.
@@ -499,6 +543,80 @@ class Model():
         print(23*'-')
         for i, f in enumerate(self.nat_freq):
             print(f'{i+1}) {f:6.1f}\t{self.nat_xi[i]:5.4f}')
+    
+    def write_uff(self, filename, name, rsp_dir, ref_dir):
+        """
+        Export modal data to a UFF file.
+
+        :param filename: The file to write to (.uff)
+        :type filename: str
+        :param name: Response and reference entity name
+        :param rsp_dir: Response direction:
+             1 - +X Translation       4 - +X Rotation
+            -1 - -X Translation      -4 - -X Rotation
+             2 - +Y Translation       5 - +Y Rotation
+            -2 - -Y Translation      -5 - -Y Rotation
+             3 - +Z Translation       6 - +Z Rotation
+            -3 - -Z Translation      -6 - -Z Rotation
+        :param ref_dir: Reference direction:
+             same options as for parameter rsp_dir  
+        """
+        print('Warning! This is an experimental feature and will be further developed.')
+        eigval_data_to_write = {'type':58,
+                'func_type': 1, #0 - general; 22 - eigenvalue
+                'rsp_node': 1, #
+                'rsp_dir': rsp_dir,  #0 - scalar
+                'ref_dir': ref_dir,  #0 - scalar
+                'ref_node': 1, #
+                'data': self.nat_freq,
+                'x': np.arange(np.shape(self.nat_freq)[0]) + 1,
+                'id1': 'id1', 
+                'rsp_ent_name': name,
+                'ref_ent_name': name,
+                'abscissa_spacing':1,
+                'abscissa_spec_data_type':1, #general
+                'ordinate_spec_data_type':18, #frequency
+                'orddenom_spec_data_type':13 #
+                }
+        uffwrite = pyuff.UFF(filename)
+        uffwrite.write_sets(eigval_data_to_write, 'add')
+
+        damp_data_to_write = {'type':58,
+                'func_type': 1, #0 - general;
+                'rsp_node': 1, #
+                'rsp_dir': rsp_dir,  #0 - scalar
+                'ref_dir': ref_dir,  #0 - scalar
+                'ref_node': 1, #
+                'data': self.nat_xi,
+                'x': np.arange(np.shape(self.nat_xi)[0]) + 1,
+                'id1': 'id1', 
+                'rsp_ent_name': name,
+                'ref_ent_name': name,
+                'abscissa_spacing':1,
+                'abscissa_spec_data_type':1, #general
+                'ordinate_spec_data_type':1, #general
+                'orddenom_spec_data_type':13 #
+                }
+        uffwrite.write_sets(damp_data_to_write, 'add')
+
+        for i in range(np.shape(self.normal_mode())[1]):
+            eigvec_data_to_write = {'type':58,
+                    'func_type': 1, #0 - general; 23 = eigenvector
+                    'rsp_node': 1, #
+                    'rsp_dir': rsp_dir,  #0 - scalar
+                    'ref_dir': ref_dir,  #0 - scalar
+                    'ref_node':1, # 
+                    'data': self.normal_mode()[:, i],
+                    'x': np.arange(np.shape(self.normal_mode())[0]),
+                    'id1': 'id1', 
+                    'rsp_ent_name': name,
+                    'ref_ent_name': name,
+                    'abscissa_spacing':1,
+                    'abscissa_spec_data_type':1, #general
+                    'ordinate_spec_data_type':1, #general
+                    'orddenom_spec_data_type':13 #
+                    }
+            uffwrite.write_sets(eigvec_data_to_write, 'add')
 
 
 def _irfft_adjusted_lower_limit(x, low_lim, indices):
