@@ -32,6 +32,7 @@ class SelectPoles:
         self.shift_is_held = False
         self.chart_type = 0 # 0 - stability chart, 1 - cluster diagram
         self.show_legend = 0
+        self.hide_poles = 1
         self.frf_plot_type = 'abs'
 
         self.Model.nat_freq = []
@@ -57,17 +58,17 @@ class SelectPoles:
         chartmenu = tk.Menu(menubar, tearoff=0)
         chartmenu.add_command(label='Stability chart', command=lambda: self.toggle_chart_type(0))
         chartmenu.add_command(label='Cluster diagram', command=lambda: self.toggle_chart_type(1))
-        menubar.add_cascade(label="Chart type", menu=chartmenu)
+        menubar.add_cascade(label="Chart Type", menu=chartmenu)
 
         mifmenu = tk.Menu(menubar, tearoff=0)
         mifmenu.add_command(label='Plot mean abs', command=lambda: self.toggle_mif_frf('abs'))
         mifmenu.add_command(label='Plot all FRFs', command=lambda: self.toggle_mif_frf('all'))
-        menubar.add_cascade(label="FRF plot type", menu=mifmenu)
+        menubar.add_cascade(label="FRF Plot Type", menu=mifmenu)
 
-        legendmenu = tk.Menu(menubar, tearoff=0)
-        legendmenu.add_command(label='Show legend', command=lambda: self.toggle_legend(1))
-        legendmenu.add_command(label='Hide legend', command=lambda: self.toggle_legend(0))
-        menubar.add_cascade(label="Legend", menu=legendmenu)
+        hidepolesmenu = tk.Menu(menubar, tearoff=0)
+        hidepolesmenu.add_command(label='Show unstable poles', command=lambda: (self.toggle_hide_poles(0), self.toggle_legend(1)))
+        hidepolesmenu.add_command(label='Hide unstable poles', command=lambda: (self.toggle_hide_poles(1), self.toggle_legend(0)))
+        menubar.add_cascade(label="Show/Hide Unstable Poles", menu=hidepolesmenu)
 
         helpmenu = tk.Menu(menubar, tearoff=0)
         helpmenu.add_command(label='Help', command=self.show_help)
@@ -131,6 +132,8 @@ class SelectPoles:
                 bbox=dict(facecolor='lightgreen', edgecolor='lightgreen'))
         
         self.ax1.set_xlim([self.Model.lower, self.Model.upper])
+        self.ax2.set_xlabel('Frequency [Hz]')
+        self.ax2.set_ylabel('Magnitude')
         self.fig.canvas.draw()
     
 
@@ -159,14 +162,19 @@ class SelectPoles:
             # unstable eigenfrequencies, stable damping ratios
             d = np.argwhere((self.test_fn == 0) & ((self.test_xi > 0) & (self.xi_temp > 0)))
 
-            p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], 1+a[:, 1], 'bx',
-                        markersize=4, label="stable frequency, unstable damping")
-            p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1], 'gx',
-                        markersize=7, label="stable frequency, stable damping")
-            p3 = self.ax1.plot(self.fn_temp[c[:, 0], c[:, 1]], 1+c[:, 1], 'r.',
-                        markersize=4, label="unstable frequency, unstable damping")
-            p4 = self.ax1.plot(self.fn_temp[d[:, 0], d[:, 1]], 1+d[:, 1], 'r*',
-                        markersize=4, label="unstable frequency, stable damping")
+            if self.hide_poles:
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1], 'gx',
+                            markersize=7, label="Stable frequency, stable damping")
+
+            else:
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1], 'gx',
+                            markersize=7, label="Stable frequency, stable damping")
+                p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], 1+a[:, 1], 'bx',
+                            markersize=4, label="Stable frequency, unstable damping")
+                p4 = self.ax1.plot(self.fn_temp[d[:, 0], d[:, 1]], 1+d[:, 1], 'r*',
+                            markersize=4, label="Unstable frequency, stable damping")
+                p3 = self.ax1.plot(self.fn_temp[c[:, 0], c[:, 1]], 1+c[:, 1], 'r.',
+                            markersize=4, label="Unstable frequency, unstable damping")
             
             self.line, = self.ax1.plot(self.Model.nat_freq, np.repeat(
                     self.Model.pol_order_high, len(self.Model.nat_freq)), 'kv', markersize=8)
@@ -174,9 +182,9 @@ class SelectPoles:
                                             [p[0] for p in self.Model.pole_ind], 'ko')
             
             if self.show_legend:
-                self.pole_legend = self.ax1.legend(loc='upper center', ncol=2, frameon=True)
+                self.pole_legend = self.ax1.legend(loc='lower center', ncol=4, frameon=True)
 
-            self.ax1.set_title('Stability chart')
+            self.ax1.set_title('Stability Chart')
 
             
             self.ax1.set_ylabel('Polynomial order')
@@ -216,14 +224,19 @@ class SelectPoles:
             # unstable eigenfrequencies, stable damping ratios
             d = np.argwhere((self.test_fn == 0) & ((self.test_xi > 0) & (self.xi_temp > 0)))
 
-            p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], self.xi_temp[a[:, 0], a[:, 1]], 'bx',
-                        markersize=4, label="stable frequency, unstable damping")
-            p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gx',
-                        markersize=7, label="stable frequency, stable damping")
-            p3 = self.ax1.plot(self.fn_temp[c[:, 0], c[:, 1]], self.xi_temp[c[:, 0], c[:, 1]], 'r.',
-                        markersize=4, label="unstable frequency, unstable damping")
-            p4 = self.ax1.plot(self.fn_temp[d[:, 0], d[:, 1]], self.xi_temp[d[:, 0], d[:, 1]], 'r*',
-                        markersize=4, label="unstable frequency, stable damping")
+            if self.hide_poles:
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gx',
+                            markersize=7, label="Stable frequency, stable damping")
+            
+            else:
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gx',
+                            markersize=7, label="Stable frequency, stable damping")
+                p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], self.xi_temp[a[:, 0], a[:, 1]], 'bx',
+                            markersize=4, label="Stable frequency, unstable damping")
+                p4 = self.ax1.plot(self.fn_temp[d[:, 0], d[:, 1]], self.xi_temp[d[:, 0], d[:, 1]], 'r*',
+                            markersize=4, label="Unstable frequency, stable damping")
+                p3 = self.ax1.plot(self.fn_temp[c[:, 0], c[:, 1]], self.xi_temp[c[:, 0], c[:, 1]], 'r.',
+                            markersize=4, label="Unstable frequency, unstable damping")
             
             self.line, = self.ax1.plot(self.Model.nat_freq, np.repeat(
                     1.05*np.max(self.xi_temp[b1[:, 0], b1[:, 1]]), len(self.Model.nat_freq)), 'kv', markersize=8)
@@ -231,9 +244,9 @@ class SelectPoles:
                                             [self.Model.pole_xi[p[0]][p[1]] for p in self.Model.pole_ind], 'ko')
             
             if self.show_legend:
-                self.pole_legend = self.ax1.legend(loc='upper center', ncol=2, frameon=True)
+                self.pole_legend = self.ax1.legend(loc='lower center', ncol=4, frameon=True)
 
-            self.ax1.set_title('Cluster diagram')
+            self.ax1.set_title('Cluster Diagram')
 
             self.ax1.set_ylabel('Damping ratio')
             plt.tight_layout()
@@ -356,6 +369,18 @@ class SelectPoles:
             self.plot_cluster()
     
     
+    def toggle_hide_poles(self, x):
+        if x:
+            self.hide_poles = 1
+        else:
+            self.hide_poles = 0
+
+        if self.chart_type == 0:
+            self.plot_stability()
+        elif self.chart_type == 1:
+            self.plot_cluster()
+
+
     def toggle_chart_type(self, x):
         if x == 0:
             self.chart_type = 0
