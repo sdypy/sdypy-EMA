@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.figure import Figure
 import time
 import scipy.linalg
 from tqdm import tqdm
@@ -13,16 +15,10 @@ try:
 except:
     print('WARNING: tkinter is not istalled or not accessible. Stability chart is not available.')
 
-try:
-    import pyuff
-except:
-    print('WARNING: pyuff is not installed or not accessible. Importing FRF data from the UFF file is not available.')
-
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.figure import Figure
-
 
 warnings.filterwarnings('ignore', category=RuntimeWarning)
+
+import pyuff
 
 from .pole_picking import SelectPoles
 from . import tools
@@ -44,8 +40,7 @@ class Model():
                  pyfrf=False,
                  get_partfactors=False,
                  driving_point=None,
-                 frf_type='accelerance',
-                 frf_from_uff=False):
+                 frf_type='accelerance'):
         """
         :param frf: Frequency response function matrix
             A ndarray with shape `(n_locations, n_frequency_points)`.
@@ -68,8 +63,6 @@ class Model():
         :param frf_type: type of the Frequency Response Function. Must be 'receptance',
             'mobility' or 'accelerance'. The correct FRF type selection is important for
             the LSFD algorithm.
-        :param frf_from_uff: add FRFs from a UFF file
-        :type frf_from_uff: bool
         """
         try:
             self.lower = float(lower)
@@ -85,9 +78,9 @@ class Model():
         if self.upper < self.lower:
             raise Exception('upper must be greater than lower')
 
-        if pyfrf or frf_from_uff:
+        if pyfrf:
             self.frf = 0
-        elif not pyfrf and not frf_from_uff and frf is not None and freq is not None:
+        elif not pyfrf and frf is not None and freq is not None:
             try:
                 self.frf = np.asarray(frf)
             except:
@@ -100,40 +93,38 @@ class Model():
             except:
                 raise Exception('cannot convert freq to a numpy array')
             if self.freq.ndim != 1:
-                raise Exception(
-                    f'ndim of freq is not equal to 1 ({self.freq.ndim})')
+                raise Exception(f'ndim of freq is not equal to 1 ({self.freq.ndim})')
 
             # Cut off the frequencies above 'upper' argument
             cutoff_ind = np.argmin(np.abs(self.freq - self.upper))
             self.frf = self.frf[:, :cutoff_ind]
             self.freq = self.freq[:cutoff_ind]
         else:
-            raise Exception('input arguments are not defined')
+            # The FRFs will be added from UFF
+            pass
 
-        try:
-            self.pol_order_high = int(pol_order_high)
-        except:
-            raise Exception('cannot convert pol_order_high to an integer')
+        if not isinstance(pol_order_high, int):
+            raise Exception('pol_order_high must be an integer')
+        self.pol_order_high = pol_order_high
+
         if self.pol_order_high <= 0:
             raise Exception('pol_order_high must be more than zero')
 
-        if not pyfrf and not frf_from_uff:
+        if not pyfrf and frf is not None and freq is not None:
             self.omega = 2 * np.pi * self.freq
             if dt is None:
                 self.sampling_time = 1/(2*self.freq[-1])
             else:
                 self.sampling_time = dt
 
-        if driving_point is None:
-            self.driving_point = driving_point
-        else:
-            if type(driving_point) != int:
-                raise('"driving_point" must be an integer')
-            else:
-                self.driving_point = driving_point
+        if not isinstance(driving_point, int):
+            raise Exception('"driving_point" must be an integer')
+        if driving_point > self.frf.shape[0]:
+            raise Exception('"driving_point" must be an index of the FRF matrix. "driving_point" too large.')
+        self.driving_point = driving_point
 
         if frf_type not in ['receptance', 'mobility', 'accelerance']:
-            raise('"frf_type" must be "receptance", "mobility" or "accelerance".')
+            raise Exception('"frf_type" must be "receptance", "mobility" or "accelerance".')
         else:
             self.frf_type = frf_type
        
@@ -149,13 +140,12 @@ class Model():
         :type pyfrf_object: object
         """
         freq = pyfrf_object.get_f_axis()
-        sel = (freq >= 1.0e-1)
 
-        self.freq = freq[sel]
+        self.freq = freq
         self.omega = 2 * np.pi * self.freq
         self.sampling_time = 1/(2*self.freq[-1])
 
-        new_frf = np.vstack(pyfrf_object.get_FRF(form='receptance')[sel])
+        new_frf = np.vstack(pyfrf_object.get_FRF(form='receptance'))
 
         if isinstance(self.frf, int):
             self.frf = new_frf.T
@@ -169,25 +159,29 @@ class Model():
         :param uff_filename: The file to read.
         :type uff_filename: str
         """
-        if type(uff_filename) != str:
-            raise Exception('uff_filename must be a string')
-        uff_file = pyuff.UFF(uff_filename)
+        try:
+            uff_file = pyuff.UFF(uff_filename)
+        except:
+            raise Exception('cannot open uff file')
+        
         set_types = uff_file.get_set_types()
-        ind58 = np.argwhere(set_types==58)[:,0]
+        if 58 not in set_types:
+            raise Exception('no FRFs in uff file')
+        
+        ind58 = np.argwhere(set_types==58)[:, 0]
+        
         uff_data = uff_file.read_sets()
         uffFRF = np.asarray([uff_data[ind]['data'] for ind in ind58 if uff_data[ind]['func_type'] == 4])
         ufffreq = np.asarray([uff_data[ind]['x'] for ind in ind58 if uff_data[ind]['func_type'] == 4])[0]
 
-        sel = (ufffreq >= 1.0e-1)
-        cutoff_ind = np.argmin(np.abs(ufffreq[sel] - self.upper))
+        cutoff_ind = np.argmin(np.abs(ufffreq - self.upper))
 
-        self.freq = ufffreq[sel]
+        self.freq = ufffreq
         self.freq = self.freq[:cutoff_ind]
         self.omega = 2 * np.pi * self.freq
         self.sampling_time = 1/(2*self.freq[-1])
 
-        self.frf = uffFRF[:, sel]
-        self.frf = self.frf[:, :cutoff_ind]
+        self.frf = uffFRF[:, :cutoff_ind]
 
         if uff_data[ind58[0]]['ordinate_spec_data_type'] == 8:
             self.frf_type = 'receptance'
@@ -196,7 +190,8 @@ class Model():
         elif uff_data[ind58[0]]['ordinate_spec_data_type'] == 12:
             self.frf_type = 'accelerance'
         else:
-            raise Exception('frf_type cannot be obtained from the uff file')
+            print('Warning: frf_type cannot be obtained from the uff file. Assuming "receptance".')
+            self.frf_type = 'receptance'
 
     def get_poles(self, method='lscf', show_progress=True):
         """Compute poles based on polynomial approximation of FRF.
@@ -561,7 +556,10 @@ class Model():
         :param ref_dir: Reference direction:
              same options as for parameter rsp_dir  
         """
-        print('Warning! This is an experimental feature and will be further developed.')
+        print('Warning: This is an experimental feature and will be further developed.')
+
+        uffwrite = pyuff.UFF(filename)
+
         eigval_data_to_write = {'type':58,
                 'func_type': 1, #0 - general; 22 - eigenvalue
                 'rsp_node': 1, #
@@ -578,7 +576,6 @@ class Model():
                 'ordinate_spec_data_type':18, #frequency
                 'orddenom_spec_data_type':13 #
                 }
-        uffwrite = pyuff.UFF(filename)
         uffwrite.write_sets(eigval_data_to_write, 'add')
 
         damp_data_to_write = {'type':58,
