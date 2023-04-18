@@ -117,10 +117,11 @@ class Model():
             else:
                 self.sampling_time = dt
 
-        if not isinstance(driving_point, int):
+        if not isinstance(driving_point, int) and driving_point is not None:
             raise Exception('"driving_point" must be an integer')
-        if driving_point > self.frf.shape[0]:
-            raise Exception('"driving_point" must be an index of the FRF matrix. "driving_point" too large.')
+        if driving_point is not None:
+            if driving_point > self.frf.shape[0]:
+                raise Exception('"driving_point" must be an index of the FRF matrix. "driving_point" too large.')
         self.driving_point = driving_point
 
         if frf_type not in ['receptance', 'mobility', 'accelerance']:
