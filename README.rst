@@ -9,8 +9,8 @@ This project is successor of the `pyEMA`_ project. pyEMA is no longer developed 
 
 New in version 0.27
 -------------------
-- **UFF** support: Import FRFs directly from UFF files. The `pyUFF`_ package is used to read the UFF files.
-- **Stability chart** upgrade: Show/hide unstable poles to improve the clarity of the chart.
+- UFF support: Import FRFs directly from UFF files. The `pyUFF`_ package is used to read the UFF files.
+- Stability chart upgrade: Show/hide unstable poles to improve the clarity of the chart.
 - Documentation update.
 
 
@@ -94,7 +94,6 @@ where **H** is reconstructed FRF matrix and **A** is a matrix of modal constants
     H, A = c.get_constants(whose_poles=a)
 
 |DOI|
-|Build Status|
 
 .. _documentation: https://sdypy-ema.readthedocs.io/en/latest/
 
