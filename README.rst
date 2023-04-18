@@ -11,7 +11,7 @@ New in version 0.27
 -------------------
 
 - **UFF** support: Import FRFs directly from UFF files. The `pyUFF <https://pypi.org/project/pyuff/>`_ package is used to read the UFF files.
-- **Stability chart** upgrade: Show/hide unstable poles to improve the clearity of the chart.
+- **Stability chart** upgrade: Show/hide unstable poles to improve the clarity of the chart.
 - Documentation update.
 
 
