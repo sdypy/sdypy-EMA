@@ -3,12 +3,26 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to sdypy-EMA documentation!
+Welcome to SDyPy-EMA documentation!
 =================================
 
-This is the documentation for ``sdypy-EMA`` package, part of ``sdypy``. Check out the project source_.
+This is the documentation for ``SDyPy-EMA`` package, part of ``SDyPy``. Check out the project source_.
 
-This project is successor of the `pyEMA`_ project. pyEMA is no longer developed after version 0.26.
+To install the package, run:
+
+.. code:: bash
+
+    pip install sdypy-EMA
+
+or install the full ``SDyPy`` package:
+
+.. code:: bash
+
+    pip install sdypy
+
+.. note::
+    
+    This project is successor of the `pyEMA`_ project. pyEMA is no longer developed after version 0.26.
 
 .. toctree::
     :maxdepth: 2
@@ -16,6 +30,7 @@ This project is successor of the `pyEMA`_ project. pyEMA is no longer developed 
 
     tutorial
     code_documentation
+    changelog
 
 
 
