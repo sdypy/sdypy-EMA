@@ -73,10 +73,13 @@ def _stabilization(sr, nmax, err_fn, err_xi):
             xi_test = np.zeros((len(xi), len(xi_temp[:, n - 1])), dtype='int')
 
             for i in range(len(fn)):
+                fn_temp[:, n-2][fn_temp[:, n-2] == 0] = 1e-10
+                xi_temp[:, n-2][xi_temp[:, n-2] == 0] = 1e-10
+                
                 fn_test[i, np.abs((fn[i] - fn_temp[:, n-2]) /
-                                  fn_temp[:, n-2]) < err_fn] = 1
+                                fn_temp[:, n-2]) < err_fn] = 1
                 xi_test[i, np.abs((xi[i] - xi_temp[:, n-2]) /
-                                  xi_temp[:, n-2]) < err_xi] = 1
+                                xi_temp[:, n-2]) < err_xi] = 1
 
                 fn_temp[i, n - 1] = fn[i]
                 xi_temp[i, n - 1] = xi[i]
