@@ -81,8 +81,8 @@ def _stabilization(sr, nmax, err_fn, err_xi):
                 xi_test[i, np.abs((xi[i] - xi_temp[:, n-2]) /
                                 xi_temp[:, n-2]) < err_xi] = 1
 
-                fn_temp[i, n - 1] = fn[i]
-                xi_temp[i, n - 1] = xi[i]
+                fn_temp[i, n - 1] = fn[i][0]
+                xi_temp[i, n - 1] = xi[i][0]
 
                 test_fn[i, n-1] = np.sum(fn_test[i, :2*n])
                 test_xi[i, n-1] = np.sum(xi_test[i, :2*n])
