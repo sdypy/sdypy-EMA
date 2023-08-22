@@ -197,6 +197,12 @@ class Model():
     def get_poles(self, method='lscf', show_progress=True):
         """Compute poles based on polynomial approximation of FRF.
 
+        :param method: The method of poles calculation ("lscf", "rfp" or "rfp segment").
+        :param show_progress: Show progress bar
+
+        LSCF
+        ====
+
         Source: https://github.com/openmodal/OpenModal/blob/master/OpenModal/analysis/lscf.py
 
         The LSCF method is an frequency-domain Linear Least Squares
@@ -251,12 +257,33 @@ class Model():
                 Least-Squares Complex Frequency-Domain Estimator, Vrije
                 Universiteit Brussel, LMS International
 
-        :param method: The method of poles calculation.
-        :param show_progress: Show progress bar
+        RFP
+        ===
+
+        The (Global) Rational Fracion Polynomial method is a SIMO MDOF frequency
+        domain modal parameter estimation method based on the rational fraction
+        formulation of the FRF. In the frequency band of interest each measured
+        FRF is approximated with its analytical rational fraction form, then by
+        solving for the roots of both the numerator and denominator polynomial,
+        the modal parameters are determined. The Least Squares method is used,
+        making the system of equations, which is used to calculate the polynomial
+        coefficients of the analytical rational fraction function, a linear one.
+        To improve numerical stability, orthogonal polynomials are used insted of
+        ordinary ones. The former are generated using the Forsythe method.
+        
+        Literature:
+            [1] Richardson, M. H., Formenti, D. L., Parameter Estimation from
+                Frequency Response Measurements using Rational Fraction Polynomials,
+                Proceedings of the 1st International Modal Analysis Conference
+                (IMAC 1), Orlando, Florida, U. S. A., 1982, pp. 167-181
+            [2] Richardson, M. H., Formenti, D. L., Global Curve Fitting of Frequency
+                Response Measurements using the Rational Fraction Polynomial Method,
+                Proceedings of the 3rd International Modal Analysis Conference
+                (IMAC 3), Orlando, Florida, U. S. A., 1985, pp. 390-397
+            [3] Maia, N. M. M., Silva, J. M. M., Theoretical and Experimental Modal
+                Analysis, Wiley, 1997
+
         """
-        if method != 'lscf':
-            raise Exception(
-                f'no method "{method}". Currently only the "lscf" method is implemented.')
 
         if show_progress:
             def tqdm_range(x): return tqdm(x, ncols=100)
@@ -268,59 +295,188 @@ class Model():
         self.pole_xi = []
         self.partfactors = []
 
-        if self.freq[0] != 0:
-            df = self.freq[1] - self.freq[0]
-            freq_start = np.arange(0, self.freq[0], df)
-            self.freq = np.hstack((freq_start, self.freq))
-            self.frf = np.column_stack((np.zeros((len(freq_start), self.frf.shape[0])).T, self.frf))
+        if method == 'lscf':
+            self.n_bands = 1
+            self.len_band = len(self.freq)
 
-        lower_ind = np.argmin(np.abs(self.freq - self.lower))
-        n = self.pol_order_high * 2
-        nf = 2 * (self.frf.shape[1] - 1)
-        nr = self.frf.shape[0]
+            if self.freq[0] != 0:
+                df = self.freq[1] - self.freq[0]
+                freq_start = np.arange(0, self.freq[0], df)
+                self.freq = np.hstack((freq_start, self.freq))
+                self.frf = np.column_stack((np.zeros((len(freq_start), self.frf.shape[0])).T, self.frf))
 
-        indices_s = np.arange(-n, n+1)
-        indices_t = np.arange(n+1)
+            lower_ind = np.argmin(np.abs(self.freq - self.lower))
+            n = self.pol_order_high * 2
+            nf = 2 * (self.frf.shape[1] - 1)
+            nr = self.frf.shape[0]
 
-        sk = -_irfft_adjusted_lower_limit(self.frf, lower_ind, indices_s)
-        t = _irfft_adjusted_lower_limit(
-            self.frf.real**2 + self.frf.imag**2, lower_ind, indices_t)
-        r = -(np.fft.irfft(np.ones(lower_ind), n=nf))[indices_t]*nf
-        r[0] += nf
+            indices_s = np.arange(-n, n+1)
+            indices_t = np.arange(n+1)
 
-        s = []
-        for i in range(nr):
-            s.append(toeplitz(sk[i, n:], sk[i, :n+1][::-1]))
-        t = toeplitz(np.sum(t[:, :n+1], axis=0))
-        r = toeplitz(r)
+            sk = -_irfft_adjusted_lower_limit(self.frf, lower_ind, indices_s)
+            t = _irfft_adjusted_lower_limit(
+                self.frf.real**2 + self.frf.imag**2, lower_ind, indices_t)
+            r = -(np.fft.irfft(np.ones(lower_ind), n=nf))[indices_t]*nf
+            r[0] += nf
 
-        # Ascending polynomial order pole computation
-        for j in tqdm_range(range(2, n+1, 2)):
-            d = 0
-            rinv = np.linalg.inv(r[:j+1, :j+1])
+            s = []
             for i in range(nr):
-                snew = s[i][:j+1, :j+1]
-                d -= np.dot(np.dot(snew[:j+1, :j+1].T,
-                                   rinv), snew[:j+1, :j+1])   # sum
-            d += t[:j+1, :j+1]
+                s.append(toeplitz(sk[i, n:], sk[i, :n+1][::-1]))
+            t = toeplitz(np.sum(t[:, :n+1], axis=0))
+            r = toeplitz(r)
 
-            a0an1 = np.linalg.solve(-d[0:j, 0:j], d[0:j, j])
-            # the numerator coefficients
-            sr = np.roots(np.append(a0an1, 1)[::-1])
+            # Ascending polynomial order pole computation
+            for j in tqdm_range(range(2, n+1, 2)):
+                d = 0
+                rinv = np.linalg.inv(r[:j+1, :j+1])
+                for i in range(nr):
+                    snew = s[i][:j+1, :j+1]
+                    d -= np.dot(np.dot(snew[:j+1, :j+1].T,
+                                       rinv), snew[:j+1, :j+1])   # sum
+                d += t[:j+1, :j+1]
 
-            # Z-domain (for discrete-time domain model)
-            poles = -np.log(sr) / self.sampling_time
+                a0an1 = np.linalg.solve(-d[0:j, 0:j], d[0:j, j])
+                # the numerator coefficients
+                sr = np.roots(np.append(a0an1, 1)[::-1])
 
-            if self.get_participation_factors:
-                _t = companion(np.append(a0an1, 1)[::-1])
-                _v, _w = np.linalg.eig(_t)
-                self.partfactors.append(_w[-1, :])
+                # Z-domain (for discrete-time domain model)
+                poles = -np.log(sr) / self.sampling_time
 
-            f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+                if self.get_participation_factors:
+                    _t = companion(np.append(a0an1, 1)[::-1])
+                    _v, _w = np.linalg.eig(_t)
+                    self.partfactors.append(_w[-1, :])
 
-            self.all_poles.append(poles)
-            self.pole_freq.append(f_pole)
-            self.pole_xi.append(ceta)
+                f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+
+                self.all_poles.append(poles)
+                self.pole_freq.append(f_pole)
+                self.pole_xi.append(ceta)
+
+        elif method == 'rfp':
+            self.n_bands = 1
+            self.len_band = len(self.freq)
+
+            if self.pol_order_high > 20:
+                self.pol_order_high = 20
+                print('rfp and rfp segment methods currently not optimized for high polynomial order. pol_order_high = 20 will be used.')
+            n = self.pol_order_high
+
+            lower_ind = np.argmin(np.abs(self.freq - self.lower))
+            self.frf = self.frf[:, lower_ind:]
+            self.freq = self.freq[lower_ind:]
+            self.omega = 2 * np.pi * self.freq
+
+            # Frequency scaling
+            freq_scal_fact = np.max(self.omega)
+            self.freq /= freq_scal_fact
+            self.omega = 2 * np.pi * self.freq
+            frf = self.frf
+
+            # Ascending polynomial order pole computation
+            for j in tqdm_range(range(1, n+1)):
+                m = 20
+    
+                # Izračun polov v skaliranem fr. območju
+                sB, B, poles = RFP_poles(self.omega, frf, m, j)
+
+                # Izračun skaliranih lastnih frevenc
+                f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+
+                f_pole *= freq_scal_fact
+                omega_pole = 2 * np.pi * f_pole
+
+                # Izračun "pravih" polov
+                poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
+
+                self.all_poles.append(poles)
+                self.pole_freq.append(f_pole)
+                self.pole_xi.append(ceta)
+
+            self.freq *= freq_scal_fact
+            self.omega *= freq_scal_fact
+
+        elif method == 'rfp segment':
+            if self.pol_order_high > 20:
+                self.pol_order_high = 20
+                print('rfp and rfp segment methods currently not optimized for high polynomial order. pol_order_high = 20 will be used.')
+            n = self.pol_order_high
+            self.len_band = 800
+
+            lower_ind = np.argmin(np.abs(self.freq - self.lower))
+            self.frf = self.frf[:, lower_ind:]
+            self.freq = self.freq[lower_ind:]
+            self.omega = 2 * np.pi * self.freq
+
+            n_full_bands = len(self.freq) // self.len_band
+            self.n_bands = n_full_bands + 1
+            cutoff_ind = n_full_bands * self.len_band
+            n_frf = np.shape(self.frf)[0]
+
+            omega_full_bands = np.reshape(self.omega[:cutoff_ind], (n_full_bands, self.len_band))
+            frf_full_bands = np.reshape(self.frf[:, :cutoff_ind], (n_frf, n_full_bands, self.len_band))
+
+            omega_part_band = self.omega[cutoff_ind:]
+            frf_part_band = self.frf[:, cutoff_ind:]
+
+            if n_full_bands > 0:
+                for ii in tqdm_range(range(n_full_bands)): #zanka čez vse polne frekvenčne pasove
+
+                    # Frequency scaling
+                    freq_scal_fact = np.max(omega_full_bands[ii, :])
+                    omega_band = omega_full_bands[ii, :] / freq_scal_fact
+
+                    frf_band = frf_full_bands[:, ii, :]
+
+                    # Ascending polynomial order pole computation
+                    for j in range(1, n+1):
+                        m = 20 #2 * j
+
+                        # Izračun polov v skaliranem fr. območju
+                        sB, B, poles = RFP_poles(omega_band, frf_band, m, j)
+
+                        # Izračun skaliranih lastnih frevenc
+                        f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+
+                        f_pole *= freq_scal_fact
+                        omega_pole = 2 * np.pi * f_pole
+
+                        # Izračun "pravih" polov
+                        poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
+
+                        self.all_poles.append(poles)
+                        self.pole_freq.append(f_pole)
+                        self.pole_xi.append(ceta)
+
+            # Izračun polov delnega frekvenčnega pasu
+            # Frequency scaling
+            freq_scal_fact = np.max(omega_part_band)
+            omega_part_band_scal = omega_part_band / freq_scal_fact
+
+            # Ascending polynomial order pole computation
+            for j in tqdm_range(range(1, n+1)):
+                m = 20 #2 * j
+
+                # Izračun polov v skaliranem fr. območju
+                sB, B, poles = RFP_poles(omega_part_band_scal, frf_part_band, m, j)
+
+                # Izračun skaliranih lastnih frevenc
+                f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+
+                f_pole *= freq_scal_fact
+                omega_pole = 2 * np.pi * f_pole
+
+                # Izračun "pravih" polov
+                poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
+
+                self.all_poles.append(poles)
+                self.pole_freq.append(f_pole)
+                self.pole_xi.append(ceta)
+
+
+        else:
+            raise Exception(
+                f'no method "{method}". Currently only the "lscf" method, the "rfp" method and the "rfp segment" are implemented.')
 
     def select_poles(self):
         """Select stable poles from stability chart.
@@ -377,7 +533,7 @@ class Model():
         Nmax = self.pol_order_high
         poles = self.all_poles
         fn_temp, xi_temp, test_fn, test_xi = stabilization._stabilization(
-            poles, Nmax, err_fn=fn_temp, err_xi=xi_temp)
+            poles, self.n_bands * Nmax, err_fn=fn_temp, err_xi=xi_temp)
         # select the stable poles
         b = np.argwhere((test_fn > 0) & ((test_xi > 0) & (xi_temp > 0)))
 
@@ -847,7 +1003,7 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
     """Identification of the modal constants using the Least-Squares Frequency Domain
     method, where the real-valued modal constants (proportional damping) are assumed.
    
-    :param poles: poles, identified with the LSCF
+    :param poles: poles, identified with the LSCF or RFP
     :param frf: the measured Frequeny Response Functions
     :param freq: the frequency vector [Hz]
     :param lower_r: bool, include the lower residuals
@@ -967,3 +1123,113 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
     FRF_rec = (FRF_rec_r + 1.j*FRF_rec_i).T
    
     return A, FRF_rec, LR, UR
+
+
+
+
+
+
+def generate_forsythe_polynomials(x, pol_order, weight): 
+    """
+    Generate orthogonal polynomials using the Forsythe method.
+
+    Generate orthogonal polynomials using the Forsythe method. The function
+    returns a matrix `matGamma` where the element `gamma_ji` means an
+    orthogonal polynomial of order `i` evaluated at the jth element of `x`.
+
+    :param x: the independent value vector
+    :param pol_order: the highest order of generated Forsythe polynomilas
+    :param weight: the vector of the weighting function at each element of `x`
+    """
+
+    len_x = len(x)
+
+    Rfp = np.zeros((len_x, pol_order + 1))
+    vfp = np.zeros(pol_order + 1)
+    dfp = np.zeros(pol_order + 1)
+
+    # k = 0:
+    Rfp[:, 0] = 1
+    vfp[0] = 0
+    dfp[0] = 2 * np.sum((Rfp[:, 0])**2 * weight)
+
+    # k = 1:
+    Rfp[:, 1] = x * Rfp[:, 0]
+    vfp[1] = (2 * np.sum(x * Rfp[:, 1] * Rfp[:, 0] * weight)) / dfp[0]
+    dfp[1] = 2 * np.sum((Rfp[:, 1])**2 * weight)
+
+    # k >= 2:
+    for k in range(2, pol_order + 1):
+        Rfp[:, k] = x * Rfp[:, k-1] - vfp[k-1] * Rfp[:, k-2]
+        vfp[k] = (2 * np.sum(x * Rfp[:, k] * Rfp[:, k-1] * weight)) / dfp[k-1]
+        dfp[k] = 2 * np.sum((Rfp[:, k])**2 * weight)
+
+    Rfp /= (dfp)**(1/2)
+    matGamma = (1j)**(np.arange(pol_order + 1)) * Rfp
+    
+    return matGamma
+
+
+def RFP_poles(omega, frf, num_pol_order, denom_pol_order):
+    """
+    Calculate complex poles of the FRFs using the RFP method.
+
+    Calculate the denominator polynomial coefficients and complex poles
+    of the approximated FRFs using the RFP method.
+
+    :param omega: the frequency (omega) vector
+    :param frf: the measured Frequeny Response Functions
+    :param num_pol_order: the numerator polynomial order
+    :param denom_pol_order: the denominator polynomial order
+    """
+
+    len_omega = len(omega)
+    n_frf = np.shape(frf)[0]
+
+    sB = np.zeros((len_omega, denom_pol_order + 1), dtype=complex)
+    
+    for k in range(denom_pol_order + 1):
+        sB[:, k] = (1j * omega)**k
+
+    # Uteži za generiranje ortogonalnih polinomov
+    qp = np.ones_like(omega, dtype=int)
+    qt = (np.abs(frf))**2
+
+    I = np.identity(denom_pol_order)
+
+    # Generiranje ortogonalnih polinomov števca (enaki za vse FRF-je, odvisni le od frekvenc)
+    matPhi = generate_forsythe_polynomials(omega, num_pol_order, qp)
+    matP = matPhi
+
+    for j in range(n_frf): #zanka čez vse FRF-je
+
+        # Generiranje ortogonalnih polinomov imenovalca (za vsak FRF)
+        matTheta = generate_forsythe_polynomials(omega, denom_pol_order, qt[j])
+        matT_ = np.diag(frf[j]) @ matTheta
+        matT = matT_[:, :-1]
+        vecW = matT_[:, -1]
+
+        X = -2 * np.real(np.conj(matP).T @ matT)
+        H = 2 * np.real(np.conj(matP).T @ vecW)
+
+        Tbd = np.linalg.pinv(sB[:, :-1]) @ matTheta[:, :-1]
+        R = np.linalg.pinv(sB[:, :-1]) @ (matTheta[:, -1] - sB[:, -1])
+
+        Ug = (I - X.T @ X) @ np.linalg.inv(Tbd)
+        Vg = Ug @ R - X.T @ H
+
+        if j == 0:
+            Ut = Ug
+            Vt = Vg
+        else:
+            Ut = np.vstack((Ut, Ug))
+            Vt = np.hstack((Vt, Vg))
+
+    # Koeficienti polinoma v imenovalcu
+    B = np.linalg.inv(Ut.T @ Ut) @ Ut.T @ Vt
+    B = np.append(B, 1)
+
+    # Poli racionalne funkcije
+    sr = np.roots(B[::-1])
+
+    return sB, B, sr

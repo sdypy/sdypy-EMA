@@ -145,7 +145,7 @@ class SelectPoles:
         """
         Nmax = self.Model.pol_order_high
         self.fn_temp, self.xi_temp, self.test_fn, self.test_xi = stabilization._stabilization(
-            self.Model.all_poles, Nmax, err_fn=fn_temp, err_xi=xi_temp)
+            self.Model.all_poles, self.Model.n_bands * Nmax, err_fn=fn_temp, err_xi=xi_temp)
 
 
     def plot_stability(self, update_ticks=False):
@@ -163,17 +163,17 @@ class SelectPoles:
             d = np.argwhere((self.test_fn == 0) & ((self.test_xi > 0) & (self.xi_temp > 0)))
 
             if self.hide_poles:
-                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1], 'gx',
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high, 'gx',
                             markersize=7, label="Stable frequency, stable damping")
 
             else:
-                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1], 'gx',
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high, 'gx',
                             markersize=7, label="Stable frequency, stable damping")
-                p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], 1+a[:, 1], 'bx',
+                p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], 1+a[:, 1]%self.Model.pol_order_high, 'bx',
                             markersize=4, label="Stable frequency, unstable damping")
-                p4 = self.ax1.plot(self.fn_temp[d[:, 0], d[:, 1]], 1+d[:, 1], 'r*',
+                p4 = self.ax1.plot(self.fn_temp[d[:, 0], d[:, 1]], 1+d[:, 1]%self.Model.pol_order_high, 'r*',
                             markersize=4, label="Unstable frequency, stable damping")
-                p3 = self.ax1.plot(self.fn_temp[c[:, 0], c[:, 1]], 1+c[:, 1], 'r.',
+                p3 = self.ax1.plot(self.fn_temp[c[:, 0], c[:, 1]], 1+c[:, 1]%self.Model.pol_order_high, 'r.',
                             markersize=4, label="Unstable frequency, unstable damping")
             
             self.line, = self.ax1.plot(self.Model.nat_freq, np.repeat(
@@ -196,7 +196,7 @@ class SelectPoles:
 
             self.selected.set_xdata([self.Model.pole_freq[p[0]][p[1]]
                                 for p in self.Model.pole_ind])  # update data
-            self.selected.set_ydata([p[0] for p in self.Model.pole_ind])
+            self.selected.set_ydata([p[0]%self.Model.pol_order_high for p in self.Model.pole_ind])
 
             plt.tight_layout()
 
@@ -266,10 +266,11 @@ class SelectPoles:
     def get_closest_poles_stability(self):
         """
         On-the-fly selection of the closest poles.        
-        """
-        y_ind = int(np.argmin(np.abs(np.arange(0, len(self.Model.pole_freq)
-                                               )-self.y_data_pole)))  # Find closest pole order
-        # Find cloeset frequency
+        """ 
+        y_ind = int(np.argmin(np.abs(np.arange(0, self.Model.pol_order_high
+                                               )-self.y_data_pole)) + (self.x_data_pole // self.Model.len_band) * self.Model.pol_order_high)  # Find closest pole order
+        
+        # Find closest frequency
         sel = np.argmin(np.abs(self.Model.pole_freq[y_ind] - self.x_data_pole))
 
         self.Model.pole_ind.append([y_ind, sel])
