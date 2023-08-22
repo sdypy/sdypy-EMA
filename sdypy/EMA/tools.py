@@ -21,6 +21,8 @@ def complex_freq_to_freq_and_damp(sr):
     """
     # Extract natural frequency
     fr = np.sign(np.imag(sr)) * np.abs(sr)
+
+    fr[fr == 0] = -1e-10
     
     # Extract damping
     xir = -sr.real/fr

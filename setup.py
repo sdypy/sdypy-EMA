@@ -45,5 +45,6 @@ setup(name='sdypy-EMA',
       url='https://github.com/ladisk/pyEMA',
       packages=['sdypy.EMA'],
       long_description=readme,
+      long_description_content_type='text/x-rst',
       install_requires=requirements
       )
