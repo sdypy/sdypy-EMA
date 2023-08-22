@@ -1086,7 +1086,7 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
     # A_ = np.linalg.lstsq(W@P[mask], W@Y[mask])[0].T
 
 
-    A_ = np.linalg.lstsq(P[mask], Y[mask])[0].T
+    A_ = np.linalg.lstsq(P[mask], Y[mask], rcond=None)[0].T
     # modal constants
     Ar, Ai = np.split(A_[:, :2*w.shape[0]], 2, axis=1)
     A = Ar + 1j*Ai
