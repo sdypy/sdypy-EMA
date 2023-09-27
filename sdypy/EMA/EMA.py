@@ -296,187 +296,196 @@ class Model():
         self.partfactors = []
 
         if method == 'lscf':
-            self.n_bands = 1
-            self.len_band = len(self.freq)
-
-            if self.freq[0] != 0:
-                df = self.freq[1] - self.freq[0]
-                freq_start = np.arange(0, self.freq[0], df)
-                self.freq = np.hstack((freq_start, self.freq))
-                self.frf = np.column_stack((np.zeros((len(freq_start), self.frf.shape[0])).T, self.frf))
-
-            lower_ind = np.argmin(np.abs(self.freq - self.lower))
-            n = self.pol_order_high * 2
-            nf = 2 * (self.frf.shape[1] - 1)
-            nr = self.frf.shape[0]
-
-            indices_s = np.arange(-n, n+1)
-            indices_t = np.arange(n+1)
-
-            sk = -_irfft_adjusted_lower_limit(self.frf, lower_ind, indices_s)
-            t = _irfft_adjusted_lower_limit(
-                self.frf.real**2 + self.frf.imag**2, lower_ind, indices_t)
-            r = -(np.fft.irfft(np.ones(lower_ind), n=nf))[indices_t]*nf
-            r[0] += nf
-
-            s = []
-            for i in range(nr):
-                s.append(toeplitz(sk[i, n:], sk[i, :n+1][::-1]))
-            t = toeplitz(np.sum(t[:, :n+1], axis=0))
-            r = toeplitz(r)
-
-            # Ascending polynomial order pole computation
-            for j in tqdm_range(range(2, n+1, 2)):
-                d = 0
-                rinv = np.linalg.inv(r[:j+1, :j+1])
-                for i in range(nr):
-                    snew = s[i][:j+1, :j+1]
-                    d -= np.dot(np.dot(snew[:j+1, :j+1].T,
-                                       rinv), snew[:j+1, :j+1])   # sum
-                d += t[:j+1, :j+1]
-
-                a0an1 = np.linalg.solve(-d[0:j, 0:j], d[0:j, j])
-                # the numerator coefficients
-                sr = np.roots(np.append(a0an1, 1)[::-1])
-
-                # Z-domain (for discrete-time domain model)
-                poles = -np.log(sr) / self.sampling_time
-
-                if self.get_participation_factors:
-                    _t = companion(np.append(a0an1, 1)[::-1])
-                    _v, _w = np.linalg.eig(_t)
-                    self.partfactors.append(_w[-1, :])
-
-                f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
-
-                self.all_poles.append(poles)
-                self.pole_freq.append(f_pole)
-                self.pole_xi.append(ceta)
+            self._get_poles_lscf(tqdm_range)
 
         elif method == 'rfp':
-            self.n_bands = 1
-            self.len_band = len(self.freq)
-
-            if self.pol_order_high > 20:
-                self.pol_order_high = 20
-                print('rfp and rfp segment methods currently not optimized for high polynomial order. pol_order_high = 20 will be used.')
-            n = self.pol_order_high
-
-            lower_ind = np.argmin(np.abs(self.freq - self.lower))
-            self.frf = self.frf[:, lower_ind:]
-            self.freq = self.freq[lower_ind:]
-            self.omega = 2 * np.pi * self.freq
-
-            # Frequency scaling
-            freq_scal_fact = np.max(self.omega)
-            self.freq /= freq_scal_fact
-            self.omega = 2 * np.pi * self.freq
-            frf = self.frf
-
-            # Ascending polynomial order pole computation
-            for j in tqdm_range(range(1, n+1)):
-                m = 20
-    
-                # Izračun polov v skaliranem fr. območju
-                sB, B, poles = RFP_poles(self.omega, frf, m, j)
-
-                # Izračun skaliranih lastnih frevenc
-                f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
-
-                f_pole *= freq_scal_fact
-                omega_pole = 2 * np.pi * f_pole
-
-                # Izračun "pravih" polov
-                poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
-
-                self.all_poles.append(poles)
-                self.pole_freq.append(f_pole)
-                self.pole_xi.append(ceta)
-
-            self.freq *= freq_scal_fact
-            self.omega *= freq_scal_fact
+            self._get_poles_rfp(tqdm_range)
 
         elif method == 'rfp segment':
-            if self.pol_order_high > 20:
-                self.pol_order_high = 20
-                print('rfp and rfp segment methods currently not optimized for high polynomial order. pol_order_high = 20 will be used.')
-            n = self.pol_order_high
-            self.len_band = 800
-
-            lower_ind = np.argmin(np.abs(self.freq - self.lower))
-            self.frf = self.frf[:, lower_ind:]
-            self.freq = self.freq[lower_ind:]
-            self.omega = 2 * np.pi * self.freq
-
-            n_full_bands = len(self.freq) // self.len_band
-            self.n_bands = n_full_bands + 1
-            cutoff_ind = n_full_bands * self.len_band
-            n_frf = np.shape(self.frf)[0]
-
-            omega_full_bands = np.reshape(self.omega[:cutoff_ind], (n_full_bands, self.len_band))
-            frf_full_bands = np.reshape(self.frf[:, :cutoff_ind], (n_frf, n_full_bands, self.len_band))
-
-            omega_part_band = self.omega[cutoff_ind:]
-            frf_part_band = self.frf[:, cutoff_ind:]
-
-            if n_full_bands > 0:
-                for ii in tqdm_range(range(n_full_bands)): #zanka čez vse polne frekvenčne pasove
-
-                    # Frequency scaling
-                    freq_scal_fact = np.max(omega_full_bands[ii, :])
-                    omega_band = omega_full_bands[ii, :] / freq_scal_fact
-
-                    frf_band = frf_full_bands[:, ii, :]
-
-                    # Ascending polynomial order pole computation
-                    for j in range(1, n+1):
-                        m = 20 #2 * j
-
-                        # Izračun polov v skaliranem fr. območju
-                        sB, B, poles = RFP_poles(omega_band, frf_band, m, j)
-
-                        # Izračun skaliranih lastnih frevenc
-                        f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
-
-                        f_pole *= freq_scal_fact
-                        omega_pole = 2 * np.pi * f_pole
-
-                        # Izračun "pravih" polov
-                        poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
-
-                        self.all_poles.append(poles)
-                        self.pole_freq.append(f_pole)
-                        self.pole_xi.append(ceta)
-
-            # Izračun polov delnega frekvenčnega pasu
-            # Frequency scaling
-            freq_scal_fact = np.max(omega_part_band)
-            omega_part_band_scal = omega_part_band / freq_scal_fact
-
-            # Ascending polynomial order pole computation
-            for j in tqdm_range(range(1, n+1)):
-                m = 20 #2 * j
-
-                # Izračun polov v skaliranem fr. območju
-                sB, B, poles = RFP_poles(omega_part_band_scal, frf_part_band, m, j)
-
-                # Izračun skaliranih lastnih frevenc
-                f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
-
-                f_pole *= freq_scal_fact
-                omega_pole = 2 * np.pi * f_pole
-
-                # Izračun "pravih" polov
-                poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
-
-                self.all_poles.append(poles)
-                self.pole_freq.append(f_pole)
-                self.pole_xi.append(ceta)
-
+            self._get_poles_rfp_segment(tqdm_range)
 
         else:
             raise Exception(
-                f'no method "{method}". Currently only the "lscf" method, the "rfp" method and the "rfp segment" are implemented.')
+                f'''no method "{method}". Currently only the "lscf" method, 
+                the "rfp" method and the "rfp segment" are implemented.''')
+
+    def _get_poles_lscf(self, tqdm_range):
+        self.n_bands = 1
+        self.len_band = len(self.freq)
+
+        if self.freq[0] != 0:
+            df = self.freq[1] - self.freq[0]
+            freq_start = np.arange(0, self.freq[0], df)
+            self.freq = np.hstack((freq_start, self.freq))
+            self.frf = np.column_stack((np.zeros((len(freq_start), self.frf.shape[0])).T, self.frf))
+
+        lower_ind = np.argmin(np.abs(self.freq - self.lower))
+        n = self.pol_order_high * 2
+        nf = 2 * (self.frf.shape[1] - 1)
+        nr = self.frf.shape[0]
+
+        indices_s = np.arange(-n, n+1)
+        indices_t = np.arange(n+1)
+
+        sk = -_irfft_adjusted_lower_limit(self.frf, lower_ind, indices_s)
+        t = _irfft_adjusted_lower_limit(
+            self.frf.real**2 + self.frf.imag**2, lower_ind, indices_t)
+        r = -(np.fft.irfft(np.ones(lower_ind), n=nf))[indices_t]*nf
+        r[0] += nf
+
+        s = []
+        for i in range(nr):
+            s.append(toeplitz(sk[i, n:], sk[i, :n+1][::-1]))
+        t = toeplitz(np.sum(t[:, :n+1], axis=0))
+        r = toeplitz(r)
+
+        # Ascending polynomial order pole computation
+        for j in tqdm_range(range(2, n+1, 2)):
+            d = 0
+            rinv = np.linalg.inv(r[:j+1, :j+1])
+            for i in range(nr):
+                snew = s[i][:j+1, :j+1]
+                d -= np.dot(np.dot(snew[:j+1, :j+1].T,
+                                    rinv), snew[:j+1, :j+1])   # sum
+            d += t[:j+1, :j+1]
+
+            a0an1 = np.linalg.solve(-d[0:j, 0:j], d[0:j, j])
+            # the numerator coefficients
+            sr = np.roots(np.append(a0an1, 1)[::-1])
+
+            # Z-domain (for discrete-time domain model)
+            poles = -np.log(sr) / self.sampling_time
+
+            if self.get_participation_factors:
+                _t = companion(np.append(a0an1, 1)[::-1])
+                _v, _w = np.linalg.eig(_t)
+                self.partfactors.append(_w[-1, :])
+
+            f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+
+            self.all_poles.append(poles)
+            self.pole_freq.append(f_pole)
+            self.pole_xi.append(ceta)
+
+    def _get_poles_rfp(self, tqdm_range):
+        self.n_bands = 1
+        self.len_band = len(self.freq)
+
+        if self.pol_order_high > 20:
+            self.pol_order_high = 20
+            print('rfp and rfp segment methods currently not optimized for high polynomial order. pol_order_high = 20 will be used.')
+        n = self.pol_order_high
+
+        lower_ind = np.argmin(np.abs(self.freq - self.lower))
+        self.frf = self.frf[:, lower_ind:]
+        self.freq = self.freq[lower_ind:]
+        self.omega = 2 * np.pi * self.freq
+
+        # Frequency scaling
+        freq_scal_fact = np.max(self.omega)
+        self.freq /= freq_scal_fact
+        self.omega = 2 * np.pi * self.freq
+        frf = self.frf
+
+        # Ascending polynomial order pole computation
+        for j in tqdm_range(range(1, n+1)):
+            m = 20
+
+            # Izračun polov v skaliranem fr. območju
+            sB, B, poles = RFP_poles(self.omega, frf, m, j)
+
+            # Izračun skaliranih lastnih frevenc
+            f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+
+            f_pole *= freq_scal_fact
+            omega_pole = 2 * np.pi * f_pole
+
+            # Izračun "pravih" polov
+            poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
+
+            self.all_poles.append(poles)
+            self.pole_freq.append(f_pole)
+            self.pole_xi.append(ceta)
+
+        self.freq *= freq_scal_fact
+        self.omega *= freq_scal_fact
+
+    def _get_poles_rfp_segment(self, tqdm_range):
+        if self.pol_order_high > 20:
+            self.pol_order_high = 20
+            print('rfp and rfp segment methods currently not optimized for high polynomial order. pol_order_high = 20 will be used.')
+        n = self.pol_order_high
+        self.len_band = 800
+
+        lower_ind = np.argmin(np.abs(self.freq - self.lower))
+        self.frf = self.frf[:, lower_ind:]
+        self.freq = self.freq[lower_ind:]
+        self.omega = 2 * np.pi * self.freq
+
+        n_full_bands = len(self.freq) // self.len_band
+        self.n_bands = n_full_bands + 1
+        cutoff_ind = n_full_bands * self.len_band
+        n_frf = np.shape(self.frf)[0]
+
+        omega_full_bands = np.reshape(self.omega[:cutoff_ind], (n_full_bands, self.len_band))
+        frf_full_bands = np.reshape(self.frf[:, :cutoff_ind], (n_frf, n_full_bands, self.len_band))
+
+        omega_part_band = self.omega[cutoff_ind:]
+        frf_part_band = self.frf[:, cutoff_ind:]
+
+        if n_full_bands > 0:
+            for ii in tqdm_range(range(n_full_bands)): #zanka čez vse polne frekvenčne pasove
+
+                # Frequency scaling
+                freq_scal_fact = np.max(omega_full_bands[ii, :])
+                omega_band = omega_full_bands[ii, :] / freq_scal_fact
+
+                frf_band = frf_full_bands[:, ii, :]
+
+                # Ascending polynomial order pole computation
+                for j in range(1, n+1):
+                    m = 20 #2 * j
+
+                    # Izračun polov v skaliranem fr. območju
+                    sB, B, poles = RFP_poles(omega_band, frf_band, m, j)
+
+                    # Izračun skaliranih lastnih frevenc
+                    f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+
+                    f_pole *= freq_scal_fact
+                    omega_pole = 2 * np.pi * f_pole
+
+                    # Izračun "pravih" polov
+                    poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
+
+                    self.all_poles.append(poles)
+                    self.pole_freq.append(f_pole)
+                    self.pole_xi.append(ceta)
+
+        # Izračun polov delnega frekvenčnega pasu
+        # Frequency scaling
+        freq_scal_fact = np.max(omega_part_band)
+        omega_part_band_scal = omega_part_band / freq_scal_fact
+
+        # Ascending polynomial order pole computation
+        for j in tqdm_range(range(1, n+1)):
+            m = 20 #2 * j
+
+            # Izračun polov v skaliranem fr. območju
+            sB, B, poles = RFP_poles(omega_part_band_scal, frf_part_band, m, j)
+
+            # Izračun skaliranih lastnih frevenc
+            f_pole, ceta = tools.complex_freq_to_freq_and_damp(poles)
+
+            f_pole *= freq_scal_fact
+            omega_pole = 2 * np.pi * f_pole
+
+            # Izračun "pravih" polov
+            poles = -omega_pole * ceta + 1j * omega_pole * np.sqrt(1 - ceta**2)
+
+            self.all_poles.append(poles)
+            self.pole_freq.append(f_pole)
+            self.pole_xi.append(ceta)
 
     def select_poles(self):
         """Select stable poles from stability chart.
