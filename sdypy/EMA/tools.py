@@ -19,6 +19,11 @@ def complex_freq_to_freq_and_damp(sr):
     :param sr: complex natural frequencies
     :return: natural frequency [Hz] and damping
     """
+    if isinstance(sr, (list, tuple, np.ndarray)):
+        sr = np.array(sr)
+    elif isinstance(sr, (int, float, complex)):
+        sr = np.array([sr])
+
     # Extract natural frequency
     fr = np.sign(np.imag(sr)) * np.abs(sr)
 

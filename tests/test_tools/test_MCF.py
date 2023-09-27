@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-import pyEMA
+from sdypy import EMA as pyEMA
 
 def test_MCF():
     """
