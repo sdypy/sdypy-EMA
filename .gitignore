@@ -114,3 +114,6 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# other
+server_user_id.txt

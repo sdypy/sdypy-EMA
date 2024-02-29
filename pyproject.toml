@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sdypy-EMA"
+version = "0.27.2"
+authors = [{name = "Janko Slavič et al.", email = "janko.slavic@fs.uni-lj.si"}]
+maintainers = [{name = "Janko Slavič et al.", email = "janko.slavic@fs.uni-lj.si"}]
+license = "MIT"
+description = "Experimental and operational modal analysis."
+readme = "README.rst"
+keywords = ["EMA", "OMA", "Experimental Modal Analysis", "Structural Dynamics"]
+requires-python = ">=3.10"
+dependencies = [
+    "tqdm>=4.23.4",
+    "numpy>=1.14.3",
+    "matplotlib>=3.3.1",
+    "scipy>=1.1.0",
+    "pyuff>=2.1",
+]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'Topic :: Scientific/Engineering',
+    'Programming Language :: Python :: 3.10',
+    "License :: OSI Approved :: MIT License",
+]
+
+[tool.hatch.build.targets.wheel]
+include = ["sdypy"]
+
+[project.optional-dependencies]
+dev = [
+    "sphinx",
+    "twine",
+    "wheel",
+    "pytest",
+    "build",
+    "sphinx-rtd-theme",
+    "sphinx-copybutton>=0.5.2",
+]
+
+[project.urls]
+homepage = "https://github.com/sdypy/sdypy-EMA"
+documentation = "https://sdypy-EMA.readthedocs.io/en/latest/index.html"
+source = "https://github.com/sdypy/sdypy-EMA"
