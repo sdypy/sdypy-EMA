@@ -1,0 +1,8 @@
+-r requirements.txt
+pytest
+sphinx-copybutton>=0.5.2
+sphinx
+twine
+wheel
+build
+sphinx-rtd-theme
