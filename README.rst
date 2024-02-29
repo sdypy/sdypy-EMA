@@ -7,13 +7,6 @@ Check out the `documentation`_.
 
 This project is successor of the `pyEMA`_ project. pyEMA is no longer developed after version 0.26.
 
-New in version 0.27
--------------------
-- UFF support: Import FRFs directly from UFF files. The `pyUFF`_ package is used to read the UFF files.
-- Stability chart upgrade: Show/hide unstable poles to improve the clarity of the chart.
-- Documentation update.
-
-
 Basic usage
 -----------
 
