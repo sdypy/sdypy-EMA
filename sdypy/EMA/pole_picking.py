@@ -16,7 +16,7 @@ from matplotlib.figure import Figure
 from . import stabilization
 
 class SelectPoles:
-    def __init__(self, Model):
+    def __init__(self, Model, root=None):
         """
         Plot the measured Frequency Response Functions and computed poles.
 
@@ -28,6 +28,10 @@ class SelectPoles:
 
         param model: object of pyEMA.Model
         """
+        if root is None:
+            self.root = tk.Tk()
+        else:
+            self.root = root
         self.Model = Model
         self.shift_is_held = False
         self.chart_type = 0 # 0 - stability chart, 1 - cluster diagram
@@ -39,8 +43,6 @@ class SelectPoles:
         self.Model.nat_xi = []
         self.Model.pole_ind = []
         
-    
-        self.root = tk.Tk()
         self.root.title('Stability Chart')
         self.fig = Figure(figsize=(20, 8))
 
@@ -94,7 +96,9 @@ class SelectPoles:
         self.fig.canvas.mpl_connect('button_press_event', lambda x: self.on_click(x))
 
         self.root.protocol("WM_DELETE_WINDOW", lambda: self.on_closing())
-        self.root.mainloop()
+
+        if root is None:
+            self.root.mainloop()
 
 
     def plot_frf(self, initial=False):
@@ -355,7 +359,7 @@ class SelectPoles:
     
 
     def on_closing(self):
-        self.root.destroy()
+        self.root.quit()
 
     
     def toggle_legend(self, x):

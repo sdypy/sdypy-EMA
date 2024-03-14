@@ -510,7 +510,10 @@ class Model():
             >>> a.nat_xi # damping coefficients
             >>> H, A = a.get_constants(whose_poles='own', FRF_ind='all) # reconstruction
         """
-        _ = SelectPoles(self)
+        root = tk.Tk()
+        _ = SelectPoles(self, root)
+        root.mainloop()
+        root.destroy()
 
     def _select_closest_poles_on_the_fly(self):
         """
