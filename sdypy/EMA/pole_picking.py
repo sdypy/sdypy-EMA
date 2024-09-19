@@ -44,11 +44,12 @@ class SelectPoles:
         self.Model.pole_ind = []
         
         self.root.title('Stability Chart')
-        self.fig = Figure(figsize=(20, 8))
+        self.fig = Figure(figsize=(15, 8))
 
         # Create axes
         self.ax2 = self.fig.add_subplot(111)
         self.ax1 = self.ax2.twinx()
+        # self.ax1.spines["right"].set_position(("outward", 'center'))
         self.ax1.grid(True)
         
         # Tkinter menu
@@ -85,10 +86,16 @@ class SelectPoles:
         self.plot_stability()
 
         # Integrate matplotlib figure
-        canvas = FigureCanvasTkAgg(self.fig, self.root)
-        canvas.get_tk_widget().pack(side='top', fill='both', expand=1)
-        NavigationToolbar2Tk(canvas, self.root)
+        canvas = FigureCanvasTkAgg(self.fig, master=self.root)
+        canvas.draw()
 
+        # Add the navigation toolbar at the top
+        toolbar = NavigationToolbar2Tk(canvas, self.root)
+        toolbar.update()
+        toolbar.pack(side=tk.TOP, fill=tk.X)
+
+        # Pack the canvas (the plot itself) below the toolbar
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
         # Connecting functions to event manager
         self.fig.canvas.mpl_connect('key_press_event', lambda x: self.on_key_press(x))
@@ -166,6 +173,8 @@ class SelectPoles:
             # unstable eigenfrequencies, stable damping ratios
             d = np.argwhere((self.test_fn == 0) & ((self.test_xi > 0) & (self.xi_temp > 0)))
 
+            self.stable_poles = np.column_stack((self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high))
+
             if self.hide_poles:
                 p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high, 'gx',
                             markersize=7, label="Stable frequency, stable damping")
@@ -190,8 +199,8 @@ class SelectPoles:
 
             self.ax1.set_title('Stability Chart')
 
-            
             self.ax1.set_ylabel('Polynomial order')
+            self.ax1.yaxis.set_label_position('right') # y-labels on the right side
 
             plt.tight_layout()
         else:
@@ -270,12 +279,18 @@ class SelectPoles:
     def get_closest_poles_stability(self):
         """
         On-the-fly selection of the closest poles.        
-        """ 
-        y_ind = int(np.argmin(np.abs(np.arange(0, self.Model.pol_order_high
-                                               )-self.y_data_pole)) + (self.x_data_pole // self.Model.len_band) * self.Model.pol_order_high)  # Find closest pole order
-        
-        # Find closest frequency
-        sel = np.argmin(np.abs(self.Model.pole_freq[y_ind] - self.x_data_pole))
+        """
+        if self.hide_poles: # if the non-stable poles are hidden, only enable the stable poles for selection
+            stable_poles = self.stable_poles.copy() - np.array([self.x_data_pole, self.y_data_pole[0]])
+            i = np.argmin(np.linalg.norm(stable_poles, axis=1))
+            y_ind = int(self.stable_poles[i, 1])
+            sel_freq = self.stable_poles[i, 0]
+            sel = int(np.argmin(np.abs(self.Model.pole_freq[y_ind] - sel_freq)))
+        else:
+            y_ind = int(np.argmin(np.abs(np.arange(0, self.Model.pol_order_high)-self.y_data_pole)) + (self.x_data_pole // self.Model.len_band) * self.Model.pol_order_high)  # Find closest pole order
+            
+            # Find closest frequency
+            sel = np.argmin(np.abs(self.Model.pole_freq[y_ind] - self.x_data_pole))
 
         self.Model.pole_ind.append([y_ind, sel])
         self.Model.nat_freq.append(self.Model.pole_freq[y_ind][sel])
@@ -329,6 +344,9 @@ class SelectPoles:
                 pass
 
         elif event.button == 2 and self.shift_is_held:
+            if len(self.Model.nat_freq) == 0:
+                return
+            
             i = np.argmin(np.abs(self.Model.nat_freq - event.xdata))
             try:
                 del self.Model.nat_freq[i]
@@ -337,7 +355,6 @@ class SelectPoles:
                 self.plot_frf()
             except:
                 pass
-
 
         if self.shift_is_held:
             if self.chart_type == 0:
