@@ -658,6 +658,11 @@ class Model():
         :param FRF_ind: Reconstruct FRF on location with this index, int
         :return: Reconstructed FRF
         """
+        warnings.warn("FRF_reconstruct() is deprecated and will be removed in a future version. Use the 'get_constants' method instead.", DeprecationWarning)
+        if not hasattr(self, 'omega'):
+            self.omega = 2*np.pi*self.freq
+        if not hasattr(self, 'poles'):
+            self.poles = self.all_poles[self.pole_ind[:,0], self.pole_ind[:,1]]
 
         FRF_true = np.zeros(len(self.omega), complex)
         for n in range(self.A.shape[1]):
