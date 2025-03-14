@@ -100,5 +100,3 @@ where **H** is reconstructed FRF matrix and **A** is a matrix of modal constants
 .. _sdypy: https://github.com/sdypy/sdypy
 
 .. _pyEMA: https://github.com/ladisk/pyEMA
-
-.. _pyUFF: https://pypi.org/project/pyuff/
