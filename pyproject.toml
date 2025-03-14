@@ -45,3 +45,8 @@ dev = [
 homepage = "https://github.com/sdypy/sdypy-EMA"
 documentation = "https://sdypy-EMA.readthedocs.io/en/latest/index.html"
 source = "https://github.com/sdypy/sdypy-EMA"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "sdypy/*"
+]
