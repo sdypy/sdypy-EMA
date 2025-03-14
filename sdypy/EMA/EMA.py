@@ -211,31 +211,31 @@ class Model():
         results in [1] (Section 5.3.3.) and can be summarized as:
 
             - Formulation: the normal equations [1]
-            (Eq. 5.26: [sum(Tk - Sk.H * Rk^-1 * Sk)]*ThetaA=D*ThetaA = 0)
-            are constructed for the common denominator discrete-time
-            model in the Z-domain. Consequently, by looping over the
-            outputs and inputs, the submatrices Rk, Sk, and Tk are
-            formulated through the use of the FFT algorithm as Toeplitz
-            structured (n+1) square matrices. Using complex coefficients,
-            the FRF data within the frequency band of interest (FRF-zoom)
-            is projected in the Z-domain in the interval of [0, 2*pi] in
-            order to improve numerical conditioning. (In the case that
-            real coefficients are used, the data is projected in the
-            interval of [0, pi].) The projecting on an interval that does
-            not completely describe the unity circle, say [0, alpha*2*pi]
-            where alpha is typically 0.9-0.95. Deliberately over-modeling
-            is best applied to cope with discontinuities. This is
-            justified by the use of a discrete time model in the Z-domain,
-            which is much more robust for a high order of the transfer
-            function polynomials.
+              (Eq. 5.26: [sum(Tk - Sk.H * Rk^-1 * Sk)]*ThetaA=D*ThetaA = 0)
+              are constructed for the common denominator discrete-time
+              model in the Z-domain. Consequently, by looping over the
+              outputs and inputs, the submatrices Rk, Sk, and Tk are
+              formulated through the use of the FFT algorithm as Toeplitz
+              structured (n+1) square matrices. Using complex coefficients,
+              the FRF data within the frequency band of interest (FRF-zoom)
+              is projected in the Z-domain in the interval of [0, 2*pi] in
+              order to improve numerical conditioning. (In the case that
+              real coefficients are used, the data is projected in the
+              interval of [0, pi].) The projecting on an interval that does
+              not completely describe the unity circle, say [0, alpha*2*pi]
+              where alpha is typically 0.9-0.95. Deliberately over-modeling
+              is best applied to cope with discontinuities. This is
+              justified by the use of a discrete time model in the Z-domain,
+              which is much more robust for a high order of the transfer
+              function polynomials.
 
             - Solver: the normal equations can be solved for the
-            denominator coefficients ThetaA by computing the Least-Squares
-            (LS) or mixed Total-Least-Squares (TLS) solution. The inverse
-            of the square matrix D for the LS solution is computed by
-            means of a pseudo inverse operation for reasons of numerical
-            stability, while the mixed LS-TLS solution is computed using
-            an SVD (Singular Value Decomposition).
+              denominator coefficients ThetaA by computing the Least-Squares
+              (LS) or mixed Total-Least-Squares (TLS) solution. The inverse
+              of the square matrix D for the LS solution is computed by
+              means of a pseudo inverse operation for reasons of numerical
+              stability, while the mixed LS-TLS solution is computed using
+              an SVD (Singular Value Decomposition).
 
         Literature:
             [1] Verboven, P., Frequency-domain System Identification for
@@ -495,20 +495,22 @@ class Model():
         as well as computing the reconstructed FRF and modal constants.
 
         The identification can be done in two ways:
-        ::
-            # 1. Using stability chart
-            >>> a.select_poles() # pick poles
-            >>> a.nat_freq # natural frequencies
-            >>> a.nat_xi # damping coefficients
-            >>> a.H # reconstructed FRF matrix
-            >>> a.A # modal constants (a.A[:, -2:] are Lower and Upper residual)
+        
+        1. Using stability chart
 
-            # 2. Using approximate natural frequencies
-            >>> approx_nat_freq = [234, 545]
-            >>> a.select_closest_poles(approx_nat_freq)
-            >>> a.nat_freq # natural frequencies
-            >>> a.nat_xi # damping coefficients
-            >>> H, A = a.get_constants(whose_poles='own', FRF_ind='all) # reconstruction
+        >>> a.select_poles() # pick poles
+        >>> a.nat_freq # natural frequencies
+        >>> a.nat_xi # damping coefficients
+        >>> a.H # reconstructed FRF matrix
+        >>> a.A # modal constants (a.A[:, -2:] are Lower and Upper residual)
+
+        2. Using approximate natural frequencies
+
+        >>> approx_nat_freq = [234, 545]
+        >>> a.select_closest_poles(approx_nat_freq)
+        >>> a.nat_freq # natural frequencies
+        >>> a.nat_xi # damping coefficients
+        >>> H, A = a.get_constants(whose_poles='own', FRF_ind='all) # reconstruction
         """
         root = tk.Tk()
         _ = SelectPoles(self, root)
@@ -655,6 +657,9 @@ class Model():
         """
         Reconstruct FRF based on modal constants.
 
+        .. deprecated:: 0.28.0
+            Use the :func:`get_constants` method instead.
+
         :param FRF_ind: Reconstruct FRF on location with this index, int
         :return: Reconstructed FRF
         """
@@ -721,12 +726,12 @@ class Model():
         :type filename: str
         :param name: Response and reference entity name
         :param rsp_dir: Response direction:
-             1 - +X Translation       4 - +X Rotation
-            -1 - -X Translation      -4 - -X Rotation
-             2 - +Y Translation       5 - +Y Rotation
-            -2 - -Y Translation      -5 - -Y Rotation
-             3 - +Z Translation       6 - +Z Rotation
-            -3 - -Z Translation      -6 - -Z Rotation
+            - 1 - +X Translation       4 - +X Rotation
+            - -1 - -X Translation      -4 - -X Rotation
+            - 2 - +Y Translation       5 - +Y Rotation
+            - -2 - -Y Translation      -5 - -Y Rotation
+            - 3 - +Z Translation       6 - +Z Rotation
+            - -3 - -Z Translation      -6 - -Z Rotation
         :param ref_dir: Reference direction:
              same options as for parameter rsp_dir  
         """

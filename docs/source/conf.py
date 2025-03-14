@@ -21,13 +21,13 @@ sys.setrecursionlimit(1500)
 # -- Project information -----------------------------------------------------
 
 project = 'sdypy-EMA'
-copyright = '2019, Klemen Zaletelj, Tomaž Bregar, Domen Gorjup, Janko Slavič'
-author = 'Klemen Zaletelj, Tomaž Bregar, Domen Gorjup, Janko Slavič'
+copyright = '2025, LADISK'
+author = 'Klemen Zaletelj, Tomaž Bregar, Domen Gorjup, Janko Slavič, et al.'
 
 # The short X.Y version
-version = ''
+version = '0.28.0'
 # The full version, including alpha/beta/rc tags
-release = 'Dec 20, 2018'
+release = ''
 
 
 # -- General configuration ---------------------------------------------------
@@ -66,12 +66,12 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+html_static_path = ['_static']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
@@ -82,7 +82,8 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+# html_theme = 'sphinx_rtd_theme'
+html_theme = 'sphinx_book_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -186,7 +187,9 @@ epub_exclude_files = ['search.html']
 # -- Options for intersphinx extension ---------------------------------------
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3/', None),
+}
 
 # Autodoc options (to show __init__ function in docs)
 autodoc_default_options = {

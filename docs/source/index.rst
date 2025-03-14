@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to SDyPy-EMA documentation!
-=================================
+===================================
 
 This is the documentation for ``SDyPy-EMA`` package, part of ``SDyPy``. Check out the project source_.
 
