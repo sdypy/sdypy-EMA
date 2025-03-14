@@ -1,3 +1,6 @@
+|pytest| |Docs Status| |DOI|
+
+
 sdypy-EMA
 =========
 
@@ -86,12 +89,13 @@ where **H** is reconstructed FRF matrix and **A** is a matrix of modal constants
 
     H, A = c.get_constants(whose_poles=a)
 
-|DOI|
-
-.. _documentation: https://sdypy-ema.readthedocs.io/en/latest/
-
+.. |Docs Status| image:: https://readthedocs.org/projects/sdypy-ema/badge/
+   :target: https://sdypy-ema.readthedocs.io/
 .. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4016671.svg?
    :target: https://doi.org/10.5281/zenodo.4016671
+.. |pytest| image:: https://github.com/sdypy/sdypy-EMA/actions/workflows/python-package.yml/badge.svg
+    :target: https://github.com/sdypy/sdypa-EMA/actions
+
 
 .. _sdypy: https://github.com/sdypy/sdypy
 
