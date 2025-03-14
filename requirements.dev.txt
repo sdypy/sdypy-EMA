@@ -6,3 +6,4 @@ twine
 wheel
 build
 sphinx-rtd-theme
+sphinx-book-theme
