@@ -334,7 +334,6 @@ class Model():
 
         for n in tqdm_range(range(1, self.pol_order_high + 1)):
             #n = current pol order
-
             nq = 2*n #number of coefficients in the polynomial
             nt = irf.shape[1] - nq - 1 #number of time points that are usable
 
@@ -370,7 +369,13 @@ class Model():
             amt_rejected = np.sum(~valid_mask)
             if amt_rejected > 0:
                 #ToDo: add a warning to the (a?) logger and stop printing as it is very slow & verbose
-                print(f'Warning: {amt_rejected} poles were rejected because they are at the upper frequency limit ({self.upper} Hz).')
+                print(f'Warning: {amt_rejected} poles were rejected because they are not in the frequency range ({self.lower} Hz < f_pole < {self.upper} Hz).')
+
+            # Identical to approch for LSCF
+            if self.get_participation_factors:
+                _t = companion(beta[::-1]) #nq x nq
+                _v, _w = np.linalg.eig(_t)
+                self.partfactors.append(_w[-1, valid_mask]) 
 
             f_poles = f_poles[valid_mask]
             zeta = zeta[valid_mask]
