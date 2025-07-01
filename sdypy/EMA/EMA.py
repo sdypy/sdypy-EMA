@@ -283,6 +283,25 @@ class Model():
             [3] Maia, N. M. M., Silva, J. M. M., Theoretical and Experimental Modal
                 Analysis, Wiley, 1997
 
+        LSCE
+        ===
+
+        Partly based on: https://github.com/openmodal/OpenModal/blob/master/OpenModal/analysis/lsce.py
+
+        The Least-Squares Complex Exponential (LSCE) method is a time-domain
+        linear Least Squares estimator for modal parameter estimation introduced
+        in [1]. It takes a SIMO set of FRFs as input, converts them to IRFs and
+        fits the modal parameters in a global sense to determine the poles.
+        
+        Literature:
+            [1] Brown, D. L., Allemang, R. J., Zimmermann, R., Mergeay, M.,
+                "Parameter Estimation Techniques For Modal Analysis"
+                SAE Technical Paper Series, No. 790221, 1979
+            [2] Allemang, R. J., Avitabile, P., Handbook of Experimental Structural Dynamics,
+                Springer New York, 2022. doi: 10.1007/978-1-4614-4547-0.
+            [3] Kerschen, G., Golinval, J.-C., Experimental Modal Analysis,
+                https://web.archive.org/web/20181123113036/http://www.ltas-vis.ulg.ac.be/cmsms/uploads/File/Mvibr_notes.pdf
+
         """
 
         if show_progress:
@@ -365,11 +384,12 @@ class Model():
             f_poles, zeta = tools.complex_freq_to_freq_and_damp(poles)
 
             # ToDo: make this a parameterized option
-            valid_mask = (np.abs(f_poles) > self.lower) & (np.abs(f_poles < self.upper * 0.99)
+            valid_mask = (np.abs(f_poles) > self.lower) & (np.abs(f_poles) < self.upper)
             amt_rejected = np.sum(~valid_mask)
             if amt_rejected > 0:
                 #ToDo: add a warning to the (a?) logger and stop printing as it is very slow & verbose
-                print(f'Warning: {amt_rejected} poles were rejected because they are not in the frequency range ({self.lower} Hz < f_pole < {self.upper} Hz).')
+                #print(f'Warning: {amt_rejected} poles were rejected because they are not in the frequency range ({self.lower} Hz < f_pole < {self.upper} Hz).')
+                pass
 
             # Identical to approch for LSCF
             if self.get_participation_factors:
