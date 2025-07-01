@@ -365,7 +365,7 @@ class Model():
             f_poles, zeta = tools.complex_freq_to_freq_and_damp(poles)
 
             # ToDo: make this a parameterized option
-            valid_mask = (f_poles < self.upper * 0.99)
+            valid_mask = (np.abs(f_poles) > self.lower) & (np.abs(f_poles < self.upper * 0.99)
             amt_rejected = np.sum(~valid_mask)
             if amt_rejected > 0:
                 #ToDo: add a warning to the (a?) logger and stop printing as it is very slow & verbose
