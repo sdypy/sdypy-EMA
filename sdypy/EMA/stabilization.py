@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm
 
-import tools
+from . import tools
 
 def _redundant_values(omega, xi, prec):
     """

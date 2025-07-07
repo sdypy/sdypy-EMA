@@ -20,10 +20,10 @@ warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 import pyuff
 
-from pole_picking import SelectPoles
-import tools
-import stabilization
-import normal_modes
+from .pole_picking import SelectPoles
+from . import tools
+from . import stabilization
+from . import normal_modes
 
 class Model():
     """
