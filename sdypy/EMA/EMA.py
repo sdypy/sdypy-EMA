@@ -380,11 +380,12 @@ class Model():
 
             #sr = sr[np.isfinite(sr) & (np.abs(sr) < 1.0)]
             poles = (np.log(sr) / self.sampling_time).astype(complex)
+            poles += 1j * 2.0*np.pi*self.lower # add j*w_lower to frequencies to account for the lower limit
 
             f_poles, zeta = tools.complex_freq_to_freq_and_damp(poles)
 
             # ToDo: make this a parameterized option
-            valid_mask = (np.abs(f_poles) > self.lower) & (np.abs(f_poles) < self.upper)
+            valid_mask = (np.abs(f_poles) > self.lower) & (np.abs(f_poles) < self.upper * 0.99)
             amt_rejected = np.sum(~valid_mask)
             if amt_rejected > 0:
                 #ToDo: add a warning to the (a?) logger and stop printing as it is very slow & verbose
