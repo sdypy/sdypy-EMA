@@ -39,6 +39,7 @@ dev = [
     "build",
     "sphinx-rtd-theme",
     "sphinx-copybutton>=0.5.2",
+    "sdypy-model",
 ]
 
 [project.urls]
