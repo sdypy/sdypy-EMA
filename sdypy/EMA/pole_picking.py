@@ -13,7 +13,7 @@ except:
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
-from . import stabilization
+import stabilization
 
 class SelectPoles:
     def __init__(self, Model, root=None):
