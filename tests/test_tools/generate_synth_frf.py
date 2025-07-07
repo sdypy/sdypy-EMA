@@ -1,4 +1,4 @@
-from sdypy.model import lumped
+import pyLump as lumped
 import numpy as np
 import numpy.typing as npt
 

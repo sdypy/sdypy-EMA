@@ -1,16 +1,14 @@
 """
-Basic unit tests for the EMA module using synthetic FRFs generated via sdypy-model.
+Basic unit tests for the EMA module using synthetic FRFs generated via pyLump.
 """
 
 import pytest
 import numpy as np
 import sys, os
 
-# Add the path to the LOCAL sdypy-EMA module, ensures there is no naming conflict with the installed sdypy namespace coming from sdypy-model package
 my_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, my_path + '/../')
-sys.path.insert(0, my_path + '/../sdypy/EMA/')
-import EMA as pyEMA
+from sdypy import EMA as pyEMA
 
 from test_tools.generate_synth_frf import generate_synth_frf
 from test_tools.closeness_criteria import all_close_frequency, all_close_damping
