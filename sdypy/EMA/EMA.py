@@ -197,7 +197,7 @@ class Model():
     def get_poles(self, method='lscf', show_progress=True):
         """Compute poles based on polynomial approximation of FRF.
 
-        :param method: The method of poles calculation ("lscf", "rfp" or "rfp segment").
+        :param method: The method of poles calculation ("lscf", "lsce", "rfp" or "rfp segment").
         :param show_progress: Show progress bar
 
         LSCF
@@ -283,6 +283,25 @@ class Model():
             [3] Maia, N. M. M., Silva, J. M. M., Theoretical and Experimental Modal
                 Analysis, Wiley, 1997
 
+        LSCE
+        ===
+
+        Partly based on: https://github.com/openmodal/OpenModal/blob/master/OpenModal/analysis/lsce.py
+
+        The Least-Squares Complex Exponential (LSCE) method is a time-domain
+        linear Least Squares estimator for modal parameter estimation introduced
+        in [1]. It takes a SIMO set of FRFs as input, converts them to IRFs and
+        fits the modal parameters in a global sense to determine the poles.
+        
+        Literature:
+            [1] Brown, D. L., Allemang, R. J., Zimmermann, R., Mergeay, M.,
+                "Parameter Estimation Techniques For Modal Analysis"
+                SAE Technical Paper Series, No. 790221, 1979
+            [2] Allemang, R. J., Avitabile, P., Handbook of Experimental Structural Dynamics,
+                Springer New York, 2022. doi: 10.1007/978-1-4614-4547-0.
+            [3] Kerschen, G., Golinval, J.-C., Experimental Modal Analysis,
+                https://web.archive.org/web/20181123113036/http://www.ltas-vis.ulg.ac.be/cmsms/uploads/File/Mvibr_notes.pdf
+
         """
 
         if show_progress:
@@ -298,6 +317,9 @@ class Model():
         if method == 'lscf':
             self._get_poles_lscf(tqdm_range)
 
+        elif method == 'lsce':
+            self._get_poles_lsce(tqdm_range)
+
         elif method == 'rfp':
             self._get_poles_rfp(tqdm_range)
 
@@ -307,7 +329,82 @@ class Model():
         else:
             raise Exception(
                 f'''no method "{method}". Currently only the "lscf" method, 
-                the "rfp" method and the "rfp segment" are implemented.''')
+                the "lsce" method, the "rfp" method and the "rfp segment" 
+                are implemented.''')
+
+    def _get_poles_lsce(self, tqdm_range):
+        self.n_bands = 1
+        self.len_band = len(self.freq)
+
+        if self.freq[0] != 0:
+            df = self.freq[1] - self.freq[0]
+            freq_start = np.arange(0, self.freq[0], df)
+            self.freq = np.hstack((freq_start, self.freq))
+            self.frf = np.column_stack((np.zeros((len(freq_start), self.frf.shape[0])).T, self.frf))
+
+        lower_ind = np.argmin(np.abs(self.freq - self.lower))
+        nf = 2 * (self.frf[:, lower_ind:].shape[1] - 1)
+        nf_full = 2 * (self.frf.shape[1] - 1)
+        nr = self.frf.shape[0]
+
+        irf = np.fft.irfft(self.frf[:, lower_ind:], n=nf)
+
+        assert irf.shape[1] > 4 * self.pol_order_high, "IRF is too short for the polynomial order."
+
+        for n in tqdm_range(range(1, self.pol_order_high + 1)):
+            #n = current pol order
+            nq = 2*n #number of coefficients in the polynomial
+            nt = irf.shape[1] - nq - 1 #number of time points that are usable
+
+             # Create the Hankel matrix --> general shape is A_{ij} = a_{i+j}
+            H_size = (nt, nq)
+            ii = np.arange(H_size[0]).reshape(-1, 1)
+            jj = np.arange(H_size[1]).reshape(1, -1)
+            ij = ii + jj
+
+            H_all = np.take_along_axis(
+                irf[:, None, :],     # shape (nr, 1, nt)
+                ij[None, :, :],      # shape (1, nt, nq)
+                axis=2
+            )
+            H = np.vstack(H_all)
+
+            # Create the vector for the RHS
+            h_size = (nt, )
+            h_all = irf[:, nq:(nt+nq-1)+1]
+            h = h_all.reshape(-1, 1)
+
+            beta, res, _, _ = np.linalg.lstsq(H, -h) # solve H @ beta = -h
+            beta = np.append(beta, 1)  # append beta_{n} = 1 that is not solved in SoE
+            sr = np.roots(beta[::-1]) # beta[0] is the constant term, beta[n] is the highest order term --> flip
+
+            #sr = sr[np.isfinite(sr) & (np.abs(sr) < 1.0)]
+            poles = (np.log(sr) / self.sampling_time).astype(complex)
+            poles += 1j * 2.0*np.pi*self.lower # add j*w_lower to frequencies to account for the lower limit
+
+            f_poles, zeta = tools.complex_freq_to_freq_and_damp(poles)
+
+            # ToDo: make this a parameterized option
+            valid_mask = (np.abs(f_poles) > self.lower) & (np.abs(f_poles) < self.upper * 0.99)
+            amt_rejected = np.sum(~valid_mask)
+            if amt_rejected > 0:
+                #ToDo: add a warning to the (a?) logger and stop printing as it is very slow & verbose
+                #print(f'Warning: {amt_rejected} poles were rejected because they are not in the frequency range ({self.lower} Hz < f_pole < {self.upper} Hz).')
+                pass
+
+            # Identical to approch for LSCF
+            if self.get_participation_factors:
+                _t = companion(beta[::-1]) #nq x nq
+                _v, _w = np.linalg.eig(_t)
+                self.partfactors.append(_w[-1, valid_mask]) 
+
+            f_poles = f_poles[valid_mask]
+            zeta = zeta[valid_mask]
+            poles = poles[valid_mask]
+
+            self.all_poles.append(poles)
+            self.pole_freq.append(f_poles)
+            self.pole_xi.append(zeta)
 
     def _get_poles_lscf(self, tqdm_range):
         self.n_bands = 1
