@@ -176,13 +176,13 @@ class SelectPoles:
             self.stable_poles = np.column_stack((self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high))
 
             if self.hide_poles:
-                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high, 'gx',
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high, 'gX',
                             markersize=7, label="Stable frequency, stable damping")
 
             else:
-                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high, 'gx',
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], 1+b[:, 1]%self.Model.pol_order_high, 'gX',
                             markersize=7, label="Stable frequency, stable damping")
-                p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], 1+a[:, 1]%self.Model.pol_order_high, 'bx',
+                p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], 1+a[:, 1]%self.Model.pol_order_high, 'bX',
                             markersize=4, label="Stable frequency, unstable damping")
                 p4 = self.ax1.plot(self.fn_temp[d[:, 0], d[:, 1]], 1+d[:, 1]%self.Model.pol_order_high, 'r*',
                             markersize=4, label="Unstable frequency, stable damping")
@@ -238,11 +238,11 @@ class SelectPoles:
             d = np.argwhere((self.test_fn == 0) & ((self.test_xi > 0) & (self.xi_temp > 0)))
 
             if self.hide_poles:
-                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gx',
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gX',
                             markersize=7, label="Stable frequency, stable damping")
             
             else:
-                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gx',
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gX',
                             markersize=7, label="Stable frequency, stable damping")
                 p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], self.xi_temp[a[:, 0], a[:, 1]], 'bx',
                             markersize=4, label="Stable frequency, unstable damping")
