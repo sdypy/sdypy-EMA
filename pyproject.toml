@@ -1,16 +1,27 @@
 [build-system]
-requires = ["hatchling"]
+requires = [
+    "hatchling",
+]
 build-backend = "hatchling.build"
 
 [project]
 name = "sdypy-EMA"
-version = "0.28.0"
-authors = [{name = "Janko Slavič et al.", email = "janko.slavic@fs.uni-lj.si"}]
-maintainers = [{name = "Janko Slavič et al.", email = "janko.slavic@fs.uni-lj.si"}]
+version = "0.29.1"
+authors = [
+    { name = "Janko Slavič et al.", email = "janko.slavic@fs.uni-lj.si" },
+]
+maintainers = [
+    { name = "Janko Slavič et al.", email = "janko.slavic@fs.uni-lj.si" },
+]
 license = "MIT"
 description = "Experimental and operational modal analysis."
 readme = "README.rst"
-keywords = ["EMA", "OMA", "Experimental Modal Analysis", "Structural Dynamics"]
+keywords = [
+    "EMA",
+    "OMA",
+    "Experimental Modal Analysis",
+    "Structural Dynamics",
+]
 requires-python = ">=3.10"
 dependencies = [
     "tqdm>=4.23.4",
@@ -20,15 +31,12 @@ dependencies = [
     "pyuff>=2.1",
 ]
 classifiers = [
-    'Development Status :: 5 - Production/Stable',
-    'Intended Audience :: Developers',
-    'Topic :: Scientific/Engineering',
-    'Programming Language :: Python :: 3.10',
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python :: 3.10",
     "License :: OSI Approved :: MIT License",
 ]
-
-[tool.hatch.build.targets.wheel]
-include = ["sdypy"]
 
 [project.optional-dependencies]
 dev = [
@@ -47,7 +55,12 @@ homepage = "https://github.com/sdypy/sdypy-EMA"
 documentation = "https://sdypy-EMA.readthedocs.io/en/latest/index.html"
 source = "https://github.com/sdypy/sdypy-EMA"
 
+[tool.hatch.build.targets.wheel]
+include = [
+    "sdypy",
+]
+
 [tool.hatch.build.targets.sdist]
 include = [
-    "sdypy/*"
+    "sdypy/*",
 ]

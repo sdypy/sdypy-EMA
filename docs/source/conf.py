@@ -25,9 +25,9 @@ copyright = '2025, LADISK'
 author = 'Klemen Zaletelj, Tomaž Bregar, Domen Gorjup, Janko Slavič, et al.'
 
 # The short X.Y version
-version = '0.28.0'
+version = '0.29'
 # The full version, including alpha/beta/rc tags
-release = ''
+release = '0.29.1'
 
 
 # -- General configuration ---------------------------------------------------
