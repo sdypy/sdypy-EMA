@@ -238,11 +238,11 @@ class SelectPoles:
             d = np.argwhere((self.test_fn == 0) & ((self.test_xi > 0) & (self.xi_temp > 0)))
 
             if self.hide_poles:
-                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gx',
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gX',
                             markersize=7, label="Stable frequency, stable damping")
             
             else:
-                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gx',
+                p2 = self.ax1.plot(self.fn_temp[b[:, 0], b[:, 1]], self.xi_temp[b[:, 0], b[:, 1]], 'gX',
                             markersize=7, label="Stable frequency, stable damping")
                 p1 = self.ax1.plot(self.fn_temp[a[:, 0], a[:, 1]], self.xi_temp[a[:, 0], a[:, 1]], 'bx',
                             markersize=4, label="Stable frequency, unstable damping")
