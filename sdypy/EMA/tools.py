@@ -144,3 +144,28 @@ def MCF(phi):
         
         mcf.append(_mcf)
     return np.array(mcf)
+
+def basis_functions(frequencies, order, dt=None):
+    """Generates polynomial basis functions for performing complex Z mapping.
+    
+    The generalized frequency in this approach is a trigonometric mapping function (complex z) that has superior numerical conditioning
+    to orthogonal polynomials.
+
+    References:
+
+    - Allemang, Randall, and Peter Avitabile, eds. Handbook of experimental structural dynamics. Springer Nature, 2022, pp.600-601.
+    - Peeters, Bart, et al. "The PolyMAX frequency‐domain method: a new standard for modal parameter estimation?." Shock and
+      vibration 11.3-4 (2004): 397-409, pp. 397, 402.
+
+    The function generates an array of normalized basis function values of shape (N_f , p), where N_f is the number of frequency lines
+    in the analysis and p is the polynomial order.
+    """
+
+    omega = (frequencies - frequencies[0]) * 2 * np.pi
+    if dt is None:
+        dt = 1 / (2 * (frequencies[-1] - frequencies[0]))
+    omega_dt = 1j * omega[:, None] * dt
+    basis = np.exp(omega_dt * np.arange(order + 1))
+    basis_normalized = basis / np.max(np.abs(basis), axis=1, keepdims=True)
+
+    return basis_normalized
