@@ -92,7 +92,7 @@ where **H** is reconstructed FRF matrix and **A** is a matrix of modal constants
 .. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4016671.svg?
    :target: https://doi.org/10.5281/zenodo.4016671
 .. |pytest| image:: https://github.com/sdypy/sdypy-EMA/actions/workflows/python-package.yml/badge.svg
-    :target: https://github.com/sdypy/sdypa-EMA/actions
+    :target: https://github.com/sdypy/sdypy-EMA/actions
 
 
 .. _sdypy: https://github.com/sdypy/sdypy

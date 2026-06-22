@@ -40,7 +40,9 @@ class Model():
                  pyfrf=False,
                  get_partfactors=False,
                  driving_point=None,
-                 frf_type='accelerance'):
+                 frf_form='accelerance',
+                 *,
+                 frf_type=None):
         """
         :param frf: Frequency response function matrix
             A ndarray with shape `(n_locations, n_frequency_points)`.
@@ -60,10 +62,18 @@ class Model():
         :param driving point: the index of the driving point (used to scale
             the modal constants to modal shapes)
         :type driving_point: int, defaults to None
-        :param frf_type: type of the Frequency Response Function. Must be 'receptance',
+        :param frf_form: type of the Frequency Response Function. Must be 'receptance',
             'mobility' or 'accelerance'. The correct FRF type selection is important for
             the LSFD algorithm.
+        :param frf_type: deprecated; use ``frf_form`` instead.
         """
+        if frf_type is not None:
+            warnings.warn(
+                "frf_type is deprecated; use frf_form instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            frf_form = frf_type
         try:
             self.lower = float(lower)
         except:
@@ -124,10 +134,10 @@ class Model():
                 raise Exception('"driving_point" must be an index of the FRF matrix. "driving_point" too large.')
         self.driving_point = driving_point
 
-        if frf_type not in ['receptance', 'mobility', 'accelerance']:
-            raise Exception('"frf_type" must be "receptance", "mobility" or "accelerance".')
+        if frf_form not in ['receptance', 'mobility', 'accelerance']:
+            raise Exception('"frf_form" must be "receptance", "mobility" or "accelerance".')
         else:
-            self.frf_type = frf_type
+            self.frf_form = frf_form
        
         self.get_participation_factors = get_partfactors
 
@@ -185,14 +195,14 @@ class Model():
         self.frf = uffFRF[:, :cutoff_ind]
 
         if uff_data[ind58[0]]['ordinate_spec_data_type'] == 8:
-            self.frf_type = 'receptance'
+            self.frf_form = 'receptance'
         elif uff_data[ind58[0]]['ordinate_spec_data_type'] == 11:
-            self.frf_type = 'mobility'
+            self.frf_form = 'mobility'
         elif uff_data[ind58[0]]['ordinate_spec_data_type'] == 12:
-            self.frf_type = 'accelerance'
+            self.frf_form = 'accelerance'
         else:
-            print('Warning: frf_type cannot be obtained from the uff file. Assuming "receptance".')
-            self.frf_type = 'receptance'
+            print('Warning: frf_form cannot be obtained from the uff file. Assuming "receptance".')
+            self.frf_form = 'receptance'
 
     def get_poles(self, method='lscf', show_progress=True):
         """Compute poles based on polynomial approximation of FRF.
@@ -739,9 +749,9 @@ class Model():
 
         # Modal constant identification
         if method == 'lsfd':
-            self.A, self.H, self.LR, self.UR = LSFD(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_type)
+            self.A, self.H, self.LR, self.UR = LSFD(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_form)
         elif method == 'lsfd_proportional':
-            self.A, self.H, self.LR, self.UR = LSFD_proportional(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_type)
+            self.A, self.H, self.LR, self.UR = LSFD_proportional(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_form)
 
         # Scale with the driving point to obtain the modal shapes
         if self.driving_point is not None:
@@ -777,7 +787,7 @@ class Model():
             (self.omega**2) + self.UR[FRF_ind]
         return FRF_true
 
-    def autoMAC(self):
+    def auto_mac(self):
         """
         Auto Modal Assurance Criterion.
 
@@ -786,6 +796,28 @@ class Model():
         if not hasattr(self, 'A'):
             raise Exception('Mode shape matrix not defined.')
         return tools.MAC(self.A, self.A)
+
+    def autoMAC(self):
+        """
+        .. deprecated::
+            Use :meth:`auto_mac` instead.
+        """
+        warnings.warn(
+            "autoMAC is deprecated; use auto_mac instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.auto_mac()
+
+    @property
+    def frf_type(self):
+        """Deprecated attribute; use ``frf_form`` instead."""
+        warnings.warn(
+            "frf_type is deprecated; use frf_form instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.frf_form
 
     def normal_mode(self):
         """Transform the complex mode shape matrix self.A to normal mode shape.

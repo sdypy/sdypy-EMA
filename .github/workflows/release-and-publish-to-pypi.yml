@@ -1,64 +1,24 @@
-name: Create a Release on Tag
+name: Release and publish to PyPI
 
 on:
   push:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-  packages: write
-
 jobs:
-  release:
+  build-and-publish:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/setup-python@v5
-      with:
-        python-version: 3.11
-
-    - name: Install dependencies
-      run: pip install build tomli tomli-w
-
-    # Optional (run a python script to sync versions with the tag)
-    - name: Extract tag version
-      id: tag
-      run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-    - name: Set version from tag
-      run: python sync_version.py --set-version ${{ steps.tag.outputs.version }}
-
-    - name: Check if there are changes
-      id: diff
-      run: |
-        if git diff --quiet; then
-          echo "changed=false" >> $GITHUB_OUTPUT
-        else
-          echo "changed=true" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Commit version sync (if needed)
-      if: steps.diff.outputs.changed == 'true'
-      run: |
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-        git commit -am "sync version to ${{ steps.tag.outputs.version }}"
-        git push origin HEAD:main
-    # ---
-
-    - name: Build distribution
-      run: python -m build
-
-    - name: Create GitHub Release and upload artifacts
-      uses: softprops/action-gh-release@v2
-      with:
-        files: dist/*.whl
-
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.4.2
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
