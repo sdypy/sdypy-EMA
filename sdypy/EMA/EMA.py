@@ -15,6 +15,12 @@ try:
 except:
     print('WARNING: tkinter is not istalled or not accessible. Stability chart is not available.')
 
+try:
+    import numba as nb
+    _HAS_NUMBA = True
+except ImportError:
+    _HAS_NUMBA = False
+
 
 warnings.filterwarnings('ignore', category=RuntimeWarning)
 
@@ -197,7 +203,7 @@ class Model():
     def get_poles(self, method='lscf', show_progress=True):
         """Compute poles based on polynomial approximation of FRF.
 
-        :param method: The method of poles calculation ("lscf", "lsce", "rfp" or "rfp segment").
+        :param method: The method of poles calculation ("lscf", "lsce", "rfp", "rfp segment", "plscf").
         :param show_progress: Show progress bar
 
         LSCF
@@ -257,6 +263,29 @@ class Model():
                 Least-Squares Complex Frequency-Domain Estimator, Vrije
                 Universiteit Brussel, LMS International
 
+        pLSCF
+        ===============
+        The Polyreference Least-Squares Complex Frequency-Domain (pLSCF) method is an 
+        optimized, MIMO-capable evolution of the LSCF method.
+
+            - Formulation: It uses a Right Matrix Fraction Description (RMFD) to handle 
+              polyreference data. Unlike the standard LSCF which relies on FFTs and 
+              Toeplitz matrices, pLSCF builds the normal equations explicitly in the 
+              frequency domain using highly optimized tensor contractions.
+            - Stability: To prevent severe numerical ill-conditioning at high polynomial 
+              orders, it utilizes the Gram-Schmidt process to construct Forsythe orthogonal 
+              polynomials. This forces the numerator's normal matrix to the Identity matrix, 
+              allowing for a highly stable Schur complement reduction.
+            - Solver: Extracts poles by computing the eigenvalues of the reduced RMFD 
+              block companion matrix.
+
+        Literature:
+            [1] Verboven, P., Frequency-domain System Identification for Modal Analysis...
+            [2] Verboven, P., Stabilization Charts and Uncertainty Bounds...
+            [3] Peeters, B., Van der Auweraer, H., Guillaume, P., Leuridan, J., 
+                "The PolyMAX Frequency-Domain Method: A New Standard for Modal Parameter 
+                Estimation?", Shock and Vibration, Vol. 11, 2004, pp. 395-409.
+        
         RFP
         ===
 
@@ -326,11 +355,14 @@ class Model():
         elif method == 'rfp segment':
             self._get_poles_rfp_segment(tqdm_range)
 
+        elif method == 'plscf':
+            self._get_poles_plscf(tqdm_range)
+
         else:
             raise Exception(
                 f'''no method "{method}". Currently only the "lscf" method, 
-                the "lsce" method, the "rfp" method and the "rfp segment" 
-                are implemented.''')
+                the "lsce" method, the "rfp" method, the "rfp segment" method
+                and the "plscf" method are implemented.''')
 
     def _get_poles_lsce(self, tqdm_range):
         self.n_bands = 1
@@ -583,6 +615,139 @@ class Model():
             self.all_poles.append(poles)
             self.pole_freq.append(f_pole)
             self.pole_xi.append(ceta)
+
+    def _get_poles_plscf(self, tqdm_range):
+        """Compute poles using the Polyreference Least-Squares Complex Frequency (pLSCF) method.
+
+        For the current single-reference case (FRF shape: no x nf), the FRF is internally
+        reshaped to (nf, no, 1) where the last dimension represents the number of references.
+        """
+        self.n_bands = 1
+        self.len_band = len(self.freq)
+
+        if self.freq[0] != 0:
+            df = self.freq[1] - self.freq[0]
+            freq_start = np.arange(0, self.freq[0], df)
+            self.freq = np.hstack((freq_start, self.freq))
+            self.frf = np.column_stack((np.zeros((len(freq_start), self.frf.shape[0])).T, self.frf))
+
+        # nf = len(self.freq)
+        no = self.frf.shape[0]
+        ni = 1
+
+        # pLSCF formulation expects MIMO FRFs with shape (Nf, no, ni),
+        # sdypy-EMA allow currently only SIMO case (no, Nf).
+        # self.frf is reshaped to (Nf, no, 1) to keep the pLSCF in tact,
+        # making future MIMO integration trivial.
+        frf_3d = self.frf.T[:, :, np.newaxis]
+
+        f_max = float(self.freq[-1])
+        dt_norm = 1.0 / (2.0 * f_max)
+
+        # construct a double-sided -> conjugate-symmetric spectrum [-pi, pi] 
+        # to properly constrain the unit circle (single-sided approach wasn't 
+        # numerically stable at higher orders)
+        # The LSCF in sdypy-EMA uses zero-padded IFFT -> Toeplitz
+        # -> 
+        freqs_2sided = np.concatenate((-self.freq[::-1], self.freq))
+        frf_2sided = np.concatenate(
+            (np.conj(frf_3d[::-1, :, :]), frf_3d), axis=0
+        )
+        z_2sided = np.exp(-1j * (2.0 * np.pi * freqs_2sided) * dt_norm)
+
+        Nc = no * ni
+        frf_flat = frf_2sided.transpose(1, 2, 0).reshape(Nc, -1)
+
+        R_ba_max = _build_forsythe_matrix_plscf(
+            frf_flat, z_2sided, self.pol_order_high, tqdm_range
+        )
+
+        bs = 2 * self.pol_order_high + 1
+        Nf = len(freqs_2sided)
+
+        z_pow = np.ones((Nf, bs), dtype=complex)
+        if bs > 1:
+            z_pow[:, 1:] = np.cumprod(
+                np.broadcast_to(z_2sided[:, None], (Nf, bs - 1)), axis=1
+            )
+
+        # Optimised variation for the pLSCF paper writes the normal matrices (R_aa, etc.) using explicit scalar 
+        # summations over the frequency bins. Python 'for' loops are too slow for this.
+        # Instead, we use Einstein summation (np.einsum) to perform vectorized tensor 
+        # contractions in C-speed.
+        # spatial correlation matrix (Cross-Power Spectrum) at each freq.
+        W = np.einsum(
+            "f o i, f o j -> i j f",
+            frf_2sided.conj(), frf_2sided,
+            optimize=True,
+        )
+
+        # Vectorized Schur complement
+        # The original paper reduces the normal equations by eliminating the numerator, leaving:
+        # [T - S^H * R^-1 * S] * Beta = 0
+        #
+        # Instead of building 2D T, S, and R matrices inside the for loop for each order,
+        # it is pre-computed as 4D tensor [outputs, inputs, poly_order, poly_order] 
+        # to calculate all polynomial degrees simultaneously
+        # Also, the Forsythe ort. poly. returns the R matrix to be I
+        # -> correction term is just (S^H * S)
+
+        # The T Matrix
+        R_aa_block = np.real(
+            np.einsum(
+                "f m, i j f, f l -> i j m l",
+                z_pow.conj(), W, z_pow,
+                optimize=True,
+            )
+        )
+
+        # The S Matrix
+        R_ba_reshaped = R_ba_max.reshape(no, ni, bs, bs)
+        
+        # S^H * R^-1 * S
+        # (because of Forsythe orthogonal polynomials, the R matrix is I)
+        D_block = np.einsum(
+            "o i m u, o j m v -> m i j u v",
+            R_ba_reshaped, R_ba_reshaped,
+            optimize=True,
+        )
+
+        # correction pre-calculated for all polynomial orders
+        Correction_cubed = np.cumsum(D_block, axis=0)
+
+        max_poly_degree = self.pol_order_high * 2
+
+        for poly_order in tqdm_range(range(2, max_poly_degree + 1, 2)):
+            sub = poly_order + 1
+
+            # slice the 4D tensors to the current poly_order
+            r_aa = R_aa_block[:, :, :sub, :sub]
+            corr = Correction_cubed[sub - 1, :, :, :sub, :sub]
+
+            # reduced normal matrix (T_k - S_k^H * R_k^-1 * S_k)
+            R_red = r_aa - corr
+
+            # Flatten 4D block matrix back to 2D for the companion matrix eigenvalue solver
+            R_flat = np.transpose(R_red, (2, 0, 3, 1)).reshape(
+                sub * ni, sub * ni
+            )
+            
+            # Symmetry enforcement because of floating point errors
+            # Better eig stability at higher orders
+            R_flat = 0.5 * (R_flat + R_flat.T) 
+
+            poles = _extract_poles_rmfd(R_flat, poly_order, ni, dt_norm)
+
+            f_pole, zeta = tools.complex_freq_to_freq_and_damp(poles)
+
+            valid_mask = (
+                (np.abs(f_pole) > self.lower)
+                & (np.abs(f_pole) < self.upper * 0.99)
+            )
+
+            self.all_poles.append(poles[valid_mask])
+            self.pole_freq.append(f_pole[valid_mask])
+            self.pole_xi.append(zeta[valid_mask])
 
     def select_poles(self):
         """Select stable poles from stability chart.
@@ -1244,10 +1409,6 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
     return A, FRF_rec, LR, UR
 
 
-
-
-
-
 def generate_forsythe_polynomials(x, pol_order, weight): 
     """
     Generate orthogonal polynomials using the Forsythe method.
@@ -1352,3 +1513,145 @@ def RFP_poles(omega, frf, num_pol_order, denom_pol_order):
     sr = np.roots(B[::-1])
 
     return sB, B, sr
+
+
+def _build_forsythe_matrix_plscf(frf_flat, z_2sided, max_order, tqdm_range):
+    """Build Forsythe orthogonal polynomial matrices for pLSCF numerator elimination.
+
+    :param frf_flat: flattened FRF matrix, shape (Nc, Nf) where Nc = no * ni
+    :param z_2sided: double-sided Z-domain frequency basis, shape (Nf,)
+    :param max_order: maximum polynomial order
+    :return: R_aa (uncorrected normal matrix), R_ba (numerator projection matrix)
+    """
+    bs = 2 * max_order + 1
+    Nf = frf_flat.shape[1]
+
+    z_pow = np.ones((Nf, bs), dtype=complex)
+    if bs > 1:
+        z_pow[:, 1:] = np.cumprod(
+            np.broadcast_to(z_2sided[:, None], (Nf, bs - 1)), axis=1
+        )
+
+    # total_hsq = np.sum(np.abs(frf_flat) ** 2, axis=0)
+
+    P = np.zeros((bs, Nf), dtype=complex)
+    p_k = np.ones(Nf, dtype=complex)
+    P[0, :] = p_k / np.sqrt(Nf)
+
+    _gram_schmidt(P, z_2sided, bs, Nf, tqdm_range)
+
+    # After optimisation not needed
+    # z_pow_hsq = z_pow * total_hsq[:, None]
+    # R_aa = np.real(z_pow.conj().T @ z_pow_hsq)
+
+    P_conj_dba = P.conj()[None, :, :] * (-frf_flat)[:, None, :]
+    R_ba = np.real(P_conj_dba @ z_pow)
+
+    return R_ba
+
+
+def _gram_schmidt(P, z_2sided, bs, Nf, tqdm_range):
+    """Compute Gram-Schmidt orthogonalization of polynomial basis.
+
+    Uses numba JIT compilation if available, otherwise falls back to numpy.
+
+    :param P: pre-allocated orthogonal polynomial matrix, shape (bs, Nf)
+    :param z_2sided: double-sided Z-domain frequency basis, shape (Nf,)
+    :param bs: basis size
+    :param Nf: number of frequency points
+    """
+    if _HAS_NUMBA:
+        _numba_gram_schmidt(z_2sided, P, bs, Nf)
+    else:
+        warnings.warn(
+            "Numba is not installed. Falling back to pure Python for matrix building. "
+            "Install 'numba' for significantly faster processing.",
+            category=UserWarning,
+            stacklevel=2
+        )
+        for k in tqdm_range(range(1, bs)):
+            P[k] = z_2sided * P[k - 1]
+            for j in range(k):
+                proj = np.sum(np.conj(P[j]) * P[k])
+                P[k] -= proj * P[j]
+
+            # normalization
+            norm_val = np.sqrt(np.sum(np.abs(P[k]) ** 2))
+            if norm_val < 1e-15:
+                norm_val = 1.0
+            P[k] /= norm_val
+
+
+if _HAS_NUMBA:
+
+    @nb.njit(fastmath=True, cache=True)
+    def _numba_gram_schmidt(z_2sided, P, bs, Nf):
+        for k in range(1, bs):
+            for i in range(Nf):
+                P[k, i] = z_2sided[i] * P[k - 1, i]
+
+            for j in range(k):
+                proj = 0.0 + 0.0j
+                for i in range(Nf):
+                    proj += np.conj(P[j, i]) * P[k, i]
+
+                for i in range(Nf):
+                    P[k, i] -= proj * P[j, i]
+
+            norm_sq = 0.0
+            for i in range(Nf):
+                norm_sq += P[k, i].real ** 2 + P[k, i].imag ** 2
+
+            norm_val = np.sqrt(norm_sq)
+            if norm_val < 1e-15:
+                norm_val = 1.0
+
+            for i in range(Nf):
+                P[k, i] /= norm_val
+
+
+def _extract_poles_rmfd(R_block, poly_order, ni, dt_norm):
+    """Extract poles from the reduced RMFD block normal matrix.
+
+    Solves the block normal equations and computes eigenvalues of the
+    block companion matrix.
+
+    :param R_block: reduced and flattened block normal matrix, shape (sub*ni, sub*ni)
+    :param poly_order: current polynomial order
+    :param ni: number of inputs (references)
+    :param dt_norm: normalized sampling time
+    :return: array of complex poles in the s-plane
+    """
+    n = poly_order
+    Ni = ni
+
+    A_mat = R_block[:-Ni, :-Ni]
+    b_mat = -R_block[:-Ni, -Ni:]
+
+    try:
+        A_coeffs = scipy.linalg.lstsq(A_mat, b_mat, lapack_driver="gelsd")[0]
+    except scipy.linalg.LinAlgError:
+        return np.array([], dtype=complex)
+
+    comp_matrix = np.zeros((n * Ni, n * Ni), dtype=float)
+
+    for i in range(n - 1):
+        comp_matrix[
+            i * Ni: (i + 1) * Ni, (i + 1) * Ni: (i + 2) * Ni
+        ] = np.eye(Ni)
+
+    for i in range(n):
+        comp_matrix[
+            (n - 1) * Ni: n * Ni, i * Ni: (i + 1) * Ni
+        ] = -A_coeffs[i * Ni: (i + 1) * Ni, :]
+
+    z_poles = scipy.linalg.eigvals(comp_matrix)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        s_poles = -np.log(z_poles) / dt_norm
+    s_poles[np.abs(z_poles) < np.finfo(float).eps] = np.nan
+
+    valid_mask = np.imag(s_poles) > 0.0
+    s_poles = s_poles[valid_mask]
+
+    return s_poles

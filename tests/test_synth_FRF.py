@@ -13,7 +13,7 @@ from sdypy import EMA as pyEMA
 from test_tools.generate_synth_frf import generate_synth_frf
 from test_tools.closeness_criteria import all_close_frequency, all_close_damping
 
-@pytest.fixture(params=["lscf", "lsce"])
+@pytest.fixture(params=["lscf", "lsce", "plscf"])
 def ema_setup(request):
     method = request.param
 

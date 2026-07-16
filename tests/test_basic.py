@@ -13,7 +13,7 @@ from sdypy import EMA as pyEMA
 from test_data import *
 from test_tools.closeness_criteria import all_close_frequency
 
-@pytest.fixture(params=["lscf", "lsce"])
+@pytest.fixture(params=["lscf", "lsce", "plscf"])
 def ema_setup(request):
     method = request.param
 
