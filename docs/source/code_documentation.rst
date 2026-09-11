@@ -26,6 +26,10 @@ The ``SelectPoles`` class is called from the ``Model`` class by calling ``select
 
 In this case, the ``Model`` argument is passed automatically.
 
+When PySide6 or PyQt6 is installed, ``select_poles()`` opens the Qt chart
+(``sdypy.EMA.pole_picking_qt.SelectPolesQt``) instead of the Tk chart documented below.
+Pass ``gui='qt'`` or ``gui='tk'`` to choose explicitly.
+
 .. autoclass:: sdypy.EMA.pole_picking.SelectPoles
     :members:
 

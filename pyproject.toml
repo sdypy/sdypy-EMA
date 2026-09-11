@@ -39,6 +39,9 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+qt = [
+    "PySide6>=6.5",
+]
 dev = [
     "sphinx",
     "twine",

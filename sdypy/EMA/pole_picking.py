@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 
 try:
     import tkinter as tk
-except:
-    pass
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+except ImportError:
+    pass  # no Tk; Model.select_poles() uses the Qt chart instead
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 
 from . import stabilization
