@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sdypy-EMA"
-version = "0.29.1"
+version = "0.30.0"
 authors = [
     { name = "Janko Slavič et al.", email = "janko.slavic@fs.uni-lj.si" },
 ]
