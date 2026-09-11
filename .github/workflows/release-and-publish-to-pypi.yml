@@ -5,13 +5,11 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-  packages: write
-
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
@@ -57,8 +55,28 @@ jobs:
       with:
         files: dist/*.whl
 
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.4.2
+    - name: Store the distribution for publishing
+      uses: actions/upload-artifact@v4
       with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
+        name: dist
+        path: dist/
+
+  # Trusted Publishing: PyPI accepts a short-lived OIDC token from this job, no API token secret.
+  # PyPI side: sdypy-EMA > Settings > Publishing, with this workflow file and environment "pypi".
+  publish:
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/sdypy-EMA
+    permissions:
+      id-token: write
+
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
