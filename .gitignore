@@ -117,3 +117,6 @@ dmypy.json
 
 # other
 server_user_id.txt
+
+# Build artifacts
+_build/

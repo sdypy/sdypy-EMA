@@ -35,6 +35,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Scientific/Engineering",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
 ]
 
@@ -42,15 +44,19 @@ classifiers = [
 qt = [
     "PySide6>=6.5",
 ]
-dev = [
+docs = [
     "sphinx",
+    "pydata-sphinx-theme",
+    "sphinx-copybutton>=0.5.2",
+]
+dev = [
+    "sdypy-EMA[docs]",
     "twine",
     "wheel",
     "pytest",
     "build",
-    "sphinx-rtd-theme",
-    "sphinx-copybutton>=0.5.2",
     "pyLump",
+    "flake8",
 ]
 
 [project.urls]
@@ -59,11 +65,20 @@ documentation = "https://sdypy-EMA.readthedocs.io/en/latest/index.html"
 source = "https://github.com/sdypy/sdypy-EMA"
 
 [tool.hatch.build.targets.wheel]
-include = [
-    "sdypy",
-]
+packages = ["sdypy"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "sdypy/*",
+    "sdypy/",
+    "tests/",
+    "docs/",
+    "README.rst",
+    "LICENSE",
+    "pyproject.toml",
+    "readthedocs.yaml",
+]
+exclude = [
+    "docs/_build",
+    "docs/**/_build",
+    "data/",
 ]

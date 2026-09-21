@@ -24,10 +24,12 @@ project = 'sdypy-EMA'
 copyright = '2025, LADISK'
 author = 'Klemen Zaletelj, Tomaž Bregar, Domen Gorjup, Janko Slavič, et al.'
 
+# Version is sourced from the installed distribution metadata so the docs never
+# drift from the package (RTD installs the package before building).
+from importlib.metadata import version as _get_version
+release = _get_version('sdypy-EMA')
 # The short X.Y version
-version = '0.30'
-# The full version, including alpha/beta/rc tags
-release = '0.30.0'
+version = '.'.join(release.split('.')[:2])
 
 
 # -- General configuration ---------------------------------------------------
@@ -42,10 +44,7 @@ release = '0.30.0'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
-    'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
-    # 'rinoh.frontend.sphinx',
     'sphinx_copybutton',
 ]
 
@@ -82,8 +81,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-# html_theme = 'sphinx_rtd_theme'
-html_theme = 'sphinx_book_theme'
+html_theme = 'pydata_sphinx_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
