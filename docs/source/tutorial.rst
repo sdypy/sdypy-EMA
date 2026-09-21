@@ -105,6 +105,12 @@ Option 1: Display the **stability chart**
 
     a.select_poles()
 
+The chart opens in a Qt window when PySide6 or PyQt6 is installed (``pip install sdypy-EMA[qt]``), otherwise in a Tk window.
+Choose one explicitly with ``a.select_poles(gui='qt')`` or ``a.select_poles(gui='tk')``.
+In the Qt window, click near a pole to pick it and right-click to remove it. Drag to zoom, right-drag to pan, use the
+mouse wheel to zoom around the cursor and double-click to reset the view. The picked poles are listed in a table, and the stability tolerances can be
+changed while the chart is open.
+
 Option 2: Use automatic selection
 ---------------------------------
 

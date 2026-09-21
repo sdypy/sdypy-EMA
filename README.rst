@@ -51,6 +51,7 @@ The stable poles can be determined in two ways:
     a.select_poles()
 
 The stability chart displayes calculated poles and the user can hand-pick the stable ones.
+The chart opens in a Qt window when PySide6 or PyQt6 is installed (``pip install sdypy-EMA[qt]``), otherwise in a Tk window.
 
 2. If the approximate values of natural frequencies are already known, it is not necessary to display the stability chart:
 

@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import time
 import scipy.linalg
@@ -10,15 +9,32 @@ from scipy.optimize import least_squares, leastsq
 
 import warnings
 
+# The stability chart uses Qt when available and falls back to Tk;
+# Model.select_poles() reports when neither can be used.
 try:
     import tkinter as tk
-except:
-    print('WARNING: tkinter is not istalled or not accessible. Stability chart is not available.')
-
-
-warnings.filterwarnings('ignore', category=RuntimeWarning)
+except ImportError:
+    tk = None
 
 import pyuff
+
+
+def _freq_to_index(freq, target, label):
+    """Return the index of ``freq`` closest to ``target``.
+
+    Warns when ``target`` falls outside the range spanned by ``freq``, since
+    ``np.argmin`` would otherwise silently clamp to the first or last bin.
+    """
+    target = float(target)
+    if len(freq) == 0:
+        raise ValueError('frequency vector is empty')
+    if target < freq[0] or target > freq[-1]:
+        warnings.warn(
+            f'{label} ({target}) is outside the frequency range '
+            f'[{freq[0]}, {freq[-1]}]; clamping to the nearest bin.',
+            stacklevel=2,
+        )
+    return int(np.argmin(np.abs(freq - target)))
 
 from .pole_picking import SelectPoles
 from . import tools
@@ -106,7 +122,7 @@ class Model():
                 raise Exception(f'ndim of freq is not equal to 1 ({self.freq.ndim})')
 
             # Cut off the frequencies above 'upper' argument
-            cutoff_ind = np.argmin(np.abs(self.freq - self.upper))
+            cutoff_ind = _freq_to_index(self.freq, self.upper, 'upper')
             self.frf = self.frf[:, :cutoff_ind]
             self.freq = self.freq[:cutoff_ind]
         else:
@@ -129,10 +145,8 @@ class Model():
 
         if not isinstance(driving_point, int) and driving_point is not None:
             raise Exception('"driving_point" must be an integer')
-        if driving_point is not None:
-            if driving_point > self.frf.shape[0]:
-                raise Exception('"driving_point" must be an index of the FRF matrix. "driving_point" too large.')
         self.driving_point = driving_point
+        self._validate_driving_point()
 
         if frf_form not in ['receptance', 'mobility', 'accelerance']:
             raise Exception('"frf_form" must be "receptance", "mobility" or "accelerance".')
@@ -140,6 +154,22 @@ class Model():
             self.frf_form = frf_form
        
         self.get_participation_factors = get_partfactors
+
+    def _validate_driving_point(self):
+        """Validate ``self.driving_point`` against the current FRF matrix.
+
+        Skipped when FRFs are not yet populated (``add_frf`` / ``read_uff``
+        flow) or when no driving point was requested.
+        """
+        if self.driving_point is None:
+            return
+        if not hasattr(self, 'frf') or isinstance(self.frf, int):
+            return
+        if self.driving_point >= self.frf.shape[0]:
+            raise IndexError(
+                f'"driving_point" ({self.driving_point}) must be a valid '
+                f'index of the FRF matrix (n_locations = {self.frf.shape[0]}).'
+            )
 
     def add_frf(self, pyfrf_object):
         """
@@ -150,7 +180,16 @@ class Model():
         :param pyfrf_object: FRF object from pyFRF
         :type pyfrf_object: object
         """
-        freq = pyfrf_object.get_f_axis()
+        freq = np.asarray(pyfrf_object.get_f_axis())
+
+        if not isinstance(self.frf, int):
+            if not hasattr(self, 'freq') or self.freq.shape != freq.shape \
+                    or not np.allclose(self.freq, freq):
+                raise ValueError(
+                    'frequency axis of the new pyFRF object does not match '
+                    'the existing one; cannot stack FRFs onto a different '
+                    'frequency grid.'
+                )
 
         self.freq = freq
         self.omega = 2 * np.pi * self.freq
@@ -162,6 +201,7 @@ class Model():
             self.frf = new_frf.T
         else:
             self.frf = np.concatenate((self.frf, new_frf.T), axis=0)
+        self._validate_driving_point()
 
     def read_uff(self, uff_filename):
         """
@@ -185,14 +225,14 @@ class Model():
         uffFRF = np.asarray([uff_data[ind]['data'] for ind in ind58 if uff_data[ind]['func_type'] == 4])
         ufffreq = np.asarray([uff_data[ind]['x'] for ind in ind58 if uff_data[ind]['func_type'] == 4])[0]
 
-        cutoff_ind = np.argmin(np.abs(ufffreq - self.upper))
+        cutoff_ind = _freq_to_index(ufffreq, self.upper, 'upper')
 
-        self.freq = ufffreq
-        self.freq = self.freq[:cutoff_ind]
+        self.freq = ufffreq[:cutoff_ind]
         self.omega = 2 * np.pi * self.freq
         self.sampling_time = 1/(2*self.freq[-1])
 
         self.frf = uffFRF[:, :cutoff_ind]
+        self._validate_driving_point()
 
         if uff_data[ind58[0]]['ordinate_spec_data_type'] == 8:
             self.frf_form = 'receptance'
@@ -324,23 +364,28 @@ class Model():
         self.pole_xi = []
         self.partfactors = []
 
-        if method == 'lscf':
-            self._get_poles_lscf(tqdm_range)
+        # Pole estimators rely on log/sqrt operations that emit numpy
+        # RuntimeWarnings (divide by zero, invalid value) for poles that are
+        # rejected anyway. Suppress them locally so user code isn't affected.
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            if method == 'lscf':
+                self._get_poles_lscf(tqdm_range)
 
-        elif method == 'lsce':
-            self._get_poles_lsce(tqdm_range)
+            elif method == 'lsce':
+                self._get_poles_lsce(tqdm_range)
 
-        elif method == 'rfp':
-            self._get_poles_rfp(tqdm_range)
+            elif method == 'rfp':
+                self._get_poles_rfp(tqdm_range)
 
-        elif method == 'rfp segment':
-            self._get_poles_rfp_segment(tqdm_range)
+            elif method == 'rfp segment':
+                self._get_poles_rfp_segment(tqdm_range)
 
-        else:
-            raise Exception(
-                f'''no method "{method}". Currently only the "lscf" method, 
-                the "lsce" method, the "rfp" method and the "rfp segment" 
-                are implemented.''')
+            else:
+                raise Exception(
+                    f'''no method "{method}". Currently only the "lscf" method,
+                    the "lsce" method, the "rfp" method and the "rfp segment"
+                    are implemented.''')
 
     def _get_poles_lsce(self, tqdm_range):
         self.n_bands = 1
@@ -478,10 +523,15 @@ class Model():
         self.n_bands = 1
         self.len_band = len(self.freq)
 
-        if self.pol_order_high > 20:
-            self.pol_order_high = 20
-            print('rfp and rfp segment methods currently not optimized for high polynomial order. pol_order_high = 20 will be used.')
         n = self.pol_order_high
+        if n > 20:
+            warnings.warn(
+                'rfp and rfp_segment methods are currently not optimized for '
+                'high polynomial order; capping pol_order_high to 20 for this '
+                'call (self.pol_order_high is left unchanged).',
+                stacklevel=2,
+            )
+            n = 20
 
         lower_ind = np.argmin(np.abs(self.freq - self.lower))
         self.frf = self.frf[:, lower_ind:]
@@ -518,10 +568,15 @@ class Model():
         self.omega *= freq_scal_fact
 
     def _get_poles_rfp_segment(self, tqdm_range):
-        if self.pol_order_high > 20:
-            self.pol_order_high = 20
-            print('rfp and rfp segment methods currently not optimized for high polynomial order. pol_order_high = 20 will be used.')
         n = self.pol_order_high
+        if n > 20:
+            warnings.warn(
+                'rfp and rfp_segment methods are currently not optimized for '
+                'high polynomial order; capping pol_order_high to 20 for this '
+                'call (self.pol_order_high is left unchanged).',
+                stacklevel=2,
+            )
+            n = 20
         self.len_band = 800
 
         lower_ind = np.argmin(np.abs(self.freq - self.lower))
@@ -594,12 +649,17 @@ class Model():
             self.pole_freq.append(f_pole)
             self.pole_xi.append(ceta)
 
-    def select_poles(self):
+    def select_poles(self, gui='auto'):
         """Select stable poles from stability chart.
-       
+
         Interactive pole selection is possible. Identification of natural
         frequency and damping coefficients is executed on-the-fly,
         as well as computing the reconstructed FRF and modal constants.
+
+        :param gui: toolkit for the chart window: ``'qt'`` (needs PySide6 or
+            PyQt6, e.g. ``pip install "sdypy-EMA[qt]"``), ``'tk'``, or
+            ``'auto'`` to use Qt when a Qt binding is installed and Tk otherwise.
+        :type gui: str, optional
 
         The identification can be done in two ways:
         
@@ -619,6 +679,29 @@ class Model():
         >>> a.nat_xi # damping coefficients
         >>> H, A = a.get_constants(whose_poles='own', FRF_ind='all) # reconstruction
         """
+        if gui not in ('auto', 'qt', 'tk'):
+            raise ValueError(f'gui must be "auto", "qt" or "tk", not {gui!r}.')
+
+        if gui in ('auto', 'qt'):
+            try:
+                from matplotlib.backends import qt_compat  # raises ImportError without a Qt binding
+            except ImportError as err:
+                if gui == 'qt':
+                    raise ImportError(
+                        'The Qt stability chart needs PySide6 or PyQt6; install '
+                        'one, e.g. pip install "sdypy-EMA[qt]".'
+                    ) from err
+            else:
+                from .pole_picking_qt import select_poles_qt
+                select_poles_qt(self)
+                return
+
+        if tk is None:
+            raise RuntimeError(
+                'No GUI toolkit is available for the stability chart. Install '
+                'PySide6 or PyQt6 (pip install "sdypy-EMA[qt]") or tkinter, or '
+                'use Model.select_closest_poles() instead.'
+            )
         root = tk.Tk()
         _ = SelectPoles(self, root)
         root.mainloop()
@@ -653,8 +736,13 @@ class Model():
 
         Nmax = self.pol_order_high
         poles = self.all_poles
-        fn_temp, xi_temp, test_fn, test_xi = stabilization._stabilization(
-            poles, self.n_bands * Nmax, err_fn=fn_temp, err_xi=xi_temp)
+        # _stabilization compares each pole order against the previous one;
+        # the elementwise division emits RuntimeWarnings on zero/NaN entries
+        # that are filtered out via the test masks below.
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            fn_temp, xi_temp, test_fn, test_xi = stabilization._stabilization(
+                poles, self.n_bands * Nmax, err_fn=fn_temp, err_xi=xi_temp)
         # select the stable poles
         b = np.argwhere((test_fn > 0) & ((test_xi > 0) & (xi_temp > 0)))
 
@@ -713,19 +801,43 @@ class Model():
         :type FRF_ind: int or 'all', optional
         :param f_lower: lower limit on frequency for reconstruction. If None, self.lower is used, defaults to None
         :type f_lower: float, optional
-        :param f_upper: upper limit on frequency for reconstruction. If None, self.lower is used, defaults to None
+        :param f_upper: upper limit on frequency for reconstruction. If None, self.upper is used, defaults to None
         :type f_upper: float, optional
-        :param complex_mode: Return complex modes, defaults to True
+        :param complex_mode: Currently unused; kept for backwards compatibility.
         :type complex_mode: bool, optional
         :param upper_r: Compute upper residual, defaults to True
         :type upper_r: bool, optional
         :param lower_r: Compute lower residual, defaults to True
         :type lower_r: bool, optional
-        :return: modal constants if ``FRF_ind=None``, otherwise reconstructed FRFs and modal constants
+        :return: reconstructed FRFs and modal constants ``(H, A)``.
         """
         if method not in ['lsfd', 'lsfd_proportional']:
             raise Exception(
                 f'no method "{method}".')
+
+        if FRF_ind != 'all':
+            warnings.warn(
+                "The 'FRF_ind' argument of get_constants is currently ignored; "
+                "modal constants and reconstructed FRFs are always returned "
+                "for all locations.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if complex_mode is not True:
+            warnings.warn(
+                "The 'complex_mode' argument of get_constants is currently "
+                "ignored; modal constants are always returned as complex "
+                "values. Use Model.normal_mode() to obtain real mode shapes.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        if least_squares_type != 'new':
+            warnings.warn(
+                "The 'least_squares_type' argument of get_constants is "
+                "currently ignored.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         if whose_poles == 'own':
             whose_poles = self
@@ -738,20 +850,23 @@ class Model():
         poles = np.asarray(poles)
 
         # concatenate frequency and FRF array
-        if f_lower == None:
+        if f_lower is None:
             f_lower = self.lower
 
-        if f_upper == None:
+        if f_upper is None:
             f_upper = self.upper
 
-        lower_ind = np.argmin(np.abs(self.freq - f_lower))
-        upper_ind = np.argmin(np.abs(self.freq - f_upper))
+        lower_ind = _freq_to_index(self.freq, f_lower, 'f_lower')
+        upper_ind = _freq_to_index(self.freq, f_upper, 'f_upper')
 
-        # Modal constant identification
-        if method == 'lsfd':
-            self.A, self.H, self.LR, self.UR = LSFD(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_form)
-        elif method == 'lsfd_proportional':
-            self.A, self.H, self.LR, self.UR = LSFD_proportional(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_form)
+        # Modal constant identification. LSFD residual terms divide by
+        # omega, which is zero at DC; suppress those warnings locally.
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            if method == 'lsfd':
+                self.A, self.H, self.LR, self.UR = LSFD(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_form)
+            elif method == 'lsfd_proportional':
+                self.A, self.H, self.LR, self.UR = LSFD_proportional(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_form)
 
         # Scale with the driving point to obtain the modal shapes
         if self.driving_point is not None:

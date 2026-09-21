@@ -41,6 +41,9 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+qt = [
+    "PySide6>=6.5",
+]
 docs = [
     "sphinx",
     "pydata-sphinx-theme",
