@@ -1062,9 +1062,9 @@ def _irfft_adjusted_lower_limit(x, low_lim, indices):
     return a - b
 
 
-def LSFD_old(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
+def LSFD_old(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None, *, frf_type=None):
     """Identification of the modal constants using the Least-Squares Frequency Domain method.
-   
+
     :param poles: poles, identified with the LSCF
     :param frf: the measured Frequeny Response Functions
     :param freq: the frequency vector [Hz]
@@ -1072,7 +1072,18 @@ def LSFD_old(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type)
     :param upper_r: bool, include the upper residuals
     :param lower_ind: the lower frequency limit
     :param upper_ind: the upper frequency limit
+    :param frf_form: type of the FRF, must be 'receptance', 'mobility' or 'accelerance'
+    :param frf_type: deprecated; use ``frf_form`` instead.
     """
+    if frf_type is not None:
+        warnings.warn(
+            "frf_type is deprecated; use frf_form instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        frf_form = frf_type
+    if frf_form is None:
+        raise TypeError("LSFD_old() missing required argument: 'frf_form'")
     nr_poles = len(poles)
     frf_ = frf[:, lower_ind:upper_ind]
     freq_ = freq[lower_ind:upper_ind]
@@ -1158,10 +1169,10 @@ def TA_construction(poles, freq, lower_r, upper_r):
     return TA
 
 
-def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
+def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None, *, frf_type=None):
     """Identification of the modal constants using the Least-Squares Frequency Domain
     method, where the real-valued modal constants (proportional damping) are assumed.
-   
+
     :param poles: poles, identified with the LSCF
     :param frf: the measured Frequeny Response Functions
     :param freq: the frequency vector [Hz]
@@ -1169,7 +1180,18 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
     :param upper_r: bool, include the upper residuals
     :param lower_ind: the lower frequency limit
     :param upper_ind: the upper frequency limit
+    :param frf_form: type of the FRF, must be 'receptance', 'mobility' or 'accelerance'
+    :param frf_type: deprecated; use ``frf_form`` instead.
     """
+    if frf_type is not None:
+        warnings.warn(
+            "frf_type is deprecated; use frf_form instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        frf_form = frf_type
+    if frf_form is None:
+        raise TypeError("LSFD_proportional() missing required argument: 'frf_form'")
     frf = frf.T
 
     omega = 2*np.pi*freq[:, None]
@@ -1178,37 +1200,37 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
     w = 2*np.pi*f
 
     # flexible terms
-    if frf_type == 'receptance':
+    if frf_form == 'receptance':
         p1F = (w**2 - omega**2) / (4 * xi**2 * omega**2 * w**2 + (-omega**2 + w**2)**2) # real part
         p2F = (-2 * xi * omega * w) / (4 * xi**2 * omega**2 * w**2 + (-omega**2 + w**2)**2) # imag part
-    elif frf_type == 'mobility':
+    elif frf_form == 'mobility':
         p1F = (2 * xi * omega**2 * w) / (4 * xi**2 * omega**2 * w**2 + (-omega**2 + w**2)**2) # real part
         p2F = (-omega**3 + omega * w**2) / (4 * xi**2 * omega**2 * w**2 + (-omega**2 + w**2)**2) # imag part
-    elif frf_type == 'accelerance':
+    elif frf_form == 'accelerance':
         p1F = (omega**4 - omega**2 * w**2) / (4 * xi**2 * omega**2 * w**2 + (-omega**2 + w**2)**2) # real part
         p2F = (2 * xi * omega**3 * w) / (4 * xi**2 * omega**2 * w**2 + (-omega**2 + w**2)**2) # imag part
 
     if lower_r == True:
         # lower residuals
-        if frf_type == 'receptance':
+        if frf_form == 'receptance':
             p1L = np.kron(np.array([1, 0]), -1/omega**2)
             p2L = np.kron(np.array([0, 1]), -1/omega**2)
-        elif frf_type == 'mobility':
+        elif frf_form == 'mobility':
             p1L = np.kron(np.array([1, 0]), 1/omega) # real and imag part is switched because of frequency-domain derivation
             p2L = np.kron(np.array([0, 1]), -1/omega)
-        elif frf_type == 'accelerance':
+        elif frf_form == 'accelerance':
             p1L = np.kron(np.array([1, 0]), np.ones(freq.shape[0])[:, np.newaxis])
             p2L = np.kron(np.array([0, 1]), np.ones(freq.shape[0])[:, np.newaxis])
 
 
     if upper_r == True:
-        if frf_type == 'receptance':
+        if frf_form == 'receptance':
             p1U = np.kron(np.array([1, 0]), np.ones(freq.shape[0])[:, np.newaxis])
             p2U = np.kron(np.array([0, 1]), np.ones(freq.shape[0])[:, np.newaxis])
-        elif frf_type == 'mobility':
+        elif frf_form == 'mobility':
             p1U = np.kron(np.array([1, 0]), -omega)
             p2U = np.kron(np.array([0, 1]), omega)
-        elif frf_type == 'accelerance':
+        elif frf_form == 'accelerance':
             p1U = np.kron(np.array([1, 0]), -omega**2)
             p2U = np.kron(np.array([0, 1]), -omega**2)
        
@@ -1234,7 +1256,7 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
    
     # residuals
     if lower_r == True and upper_r == True:
-        if frf_type == 'mobility':
+        if frf_form == 'mobility':
             LR = A_[:, -3] + 1j*A_[:, -4]
             UR = A_[:, -1] + 1j*A_[:, -2]
         else:
@@ -1242,14 +1264,14 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
             UR = A_[:, -2] + 1j*A_[:, -1]
 
     elif lower_r == True and upper_r == False:
-        if frf_type == 'mobility':
+        if frf_form == 'mobility':
             LR = A_[:, -1] + 1j*A_[:, -2]
         else:
             LR = A_[:, -2] + 1j*A_[:, -1]
         UR = np.zeros(frf.shape[1], dtype=complex)
     elif lower_r == False and upper_r == True:
         LR = np.zeros(frf.shape[1], dtype=complex)
-        if frf_type == 'mobility':
+        if frf_form == 'mobility':
             UR = A_[:, -1] + 1j*A_[:, -2]
         else:
             UR = A_[:, -2] + 1j*A_[:, -1]
@@ -1265,10 +1287,10 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
     return A, FRF_rec, LR, UR
 
 
-def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
+def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None, *, frf_type=None):
     """Identification of the modal constants using the Least-Squares Frequency Domain
     method, where the real-valued modal constants (proportional damping) are assumed.
-   
+
     :param poles: poles, identified with the LSCF or RFP
     :param frf: the measured Frequeny Response Functions
     :param freq: the frequency vector [Hz]
@@ -1276,7 +1298,18 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
     :param upper_r: bool, include the upper residuals
     :param lower_ind: the lower frequency limit
     :param upper_ind: the upper frequency limit
+    :param frf_form: type of the FRF, must be 'receptance', 'mobility' or 'accelerance'
+    :param frf_type: deprecated; use ``frf_form`` instead.
     """
+    if frf_type is not None:
+        warnings.warn(
+            "frf_type is deprecated; use frf_form instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        frf_form = frf_type
+    if frf_form is None:
+        raise TypeError("LSFD() missing required argument: 'frf_form'")
     frf = frf.T
 
     omega = 2*np.pi*freq[:, None]
@@ -1288,17 +1321,17 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
     si = poles.imag
 
     # flexible terms
-    if frf_type == 'receptance':
+    if frf_form == 'receptance':
         p11 = -(sr) / (sr**2 + (-si + omega)**2) - (sr) / (sr**2 + (si + omega)**2)
         p12 = (-si + omega) / (sr**2 + (-si + omega)**2) - (si + omega) / (sr**2 + (si + omega)**2)
         p21 = (si - omega) / (sr**2 + (-si + omega)**2) - (si + omega) / (sr**2 + (si + omega)**2)
         p22 = -(sr) / (sr**2 + (-si + omega)**2) + (sr) / (sr**2 + (si + omega)**2)
-    elif frf_type == 'mobility':
+    elif frf_form == 'mobility':
         p11 = (-si * omega + omega**2) / (sr**2 + (-si + omega)**2) + (si * omega + omega**2) / (sr**2 + (si + omega)**2)
         p12 = (sr * omega) / (sr**2 + (-si + omega)**2) - (sr * omega) / (sr**2 + (si + omega)**2)
         p21 = -(sr * omega) / (sr**2 + (-si + omega)**2) - (sr * omega) / (sr**2 + (si + omega)**2)
         p22 = (-si * omega + omega**2) / (sr**2 + (-si + omega)**2) - (si * omega + omega**2) / (sr**2 + (si + omega)**2)
-    elif frf_type == 'accelerance':
+    elif frf_form == 'accelerance':
         p11 = (sr * omega**2) / (sr**2 + (-si + omega)**2) + (sr * omega**2) / (sr**2 + (si + omega)**2)
         p12 = (si * omega**2 - omega**3) / (sr**2 + (-si + omega)**2) + (si * omega**2 + omega**3) / (sr**2 + (si + omega)**2)
         p21 = (-si * omega**2 + omega**3) / (sr**2 + (-si + omega)**2) + (si * omega**2 + omega**3) / (sr**2 + (si + omega)**2)
@@ -1306,25 +1339,25 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
 
     if lower_r == True:
         # lower residuals
-        if frf_type == 'receptance':
+        if frf_form == 'receptance':
             p1L = np.kron(np.array([1, 0]), -1/omega**2)
             p2L = np.kron(np.array([0, 1]), -1/omega**2)
-        elif frf_type == 'mobility':
+        elif frf_form == 'mobility':
             p1L = np.kron(np.array([1, 0]), 1/omega) # real and imag part is switched because of frequency-domain derivation
             p2L = np.kron(np.array([0, 1]), -1/omega)
-        elif frf_type == 'accelerance':
+        elif frf_form == 'accelerance':
             p1L = np.kron(np.array([1, 0]), np.ones(freq.shape[0])[:, np.newaxis])
             p2L = np.kron(np.array([0, 1]), np.ones(freq.shape[0])[:, np.newaxis])
 
 
     if upper_r == True:
-        if frf_type == 'receptance':
+        if frf_form == 'receptance':
             p1U = np.kron(np.array([1, 0]), np.ones(freq.shape[0])[:, np.newaxis])
             p2U = np.kron(np.array([0, 1]), np.ones(freq.shape[0])[:, np.newaxis])
-        elif frf_type == 'mobility':
+        elif frf_form == 'mobility':
             p1U = np.kron(np.array([1, 0]), -omega)
             p2U = np.kron(np.array([0, 1]), omega)
-        elif frf_type == 'accelerance':
+        elif frf_form == 'accelerance':
             p1U = np.kron(np.array([1, 0]), -omega**2)
             p2U = np.kron(np.array([0, 1]), -omega**2)
        
@@ -1360,7 +1393,7 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
    
     # residuals
     if lower_r == True and upper_r == True:
-        if frf_type == 'mobility':
+        if frf_form == 'mobility':
             LR = A_[:, -3] + 1j*A_[:, -4]
             UR = A_[:, -1] + 1j*A_[:, -2]
         else:
@@ -1368,14 +1401,14 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type):
             UR = A_[:, -2] + 1j*A_[:, -1]
 
     elif lower_r == True and upper_r == False:
-        if frf_type == 'mobility':
+        if frf_form == 'mobility':
             LR = A_[:, -1] + 1j*A_[:, -2]
         else:
             LR = A_[:, -2] + 1j*A_[:, -1]
         UR = np.zeros(frf.shape[1], dtype=complex)
     elif lower_r == False and upper_r == True:
         LR = np.zeros(frf.shape[1], dtype=complex)
-        if frf_type == 'mobility':
+        if frf_form == 'mobility':
             UR = A_[:, -1] + 1j*A_[:, -2]
         else:
             UR = A_[:, -2] + 1j*A_[:, -1]
