@@ -195,7 +195,7 @@ class Model():
         self.omega = 2 * np.pi * self.freq
         self.sampling_time = 1/(2*self.freq[-1])
 
-        new_frf = np.vstack(pyfrf_object.get_FRF(form='receptance'))
+        new_frf = np.vstack(pyfrf_object.get_FRF('default', 'receptance'))
 
         if isinstance(self.frf, int):
             self.frf = new_frf.T

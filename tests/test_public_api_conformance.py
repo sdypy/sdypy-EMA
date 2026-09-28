@@ -7,6 +7,7 @@ Tests:
   (c) Model(frf_form=...) no warning; Model(frf_type=...) emits DeprecationWarning, same result
   (d) np, tqdm, warnings not in sdypy.EMA.__all__
   (e) every entry in sdypy.EMA.__all__ resolves via getattr
+  (f) Model.add_frf works with a pyFRF object, calling get_FRF positionally
 """
 
 import sys
@@ -153,3 +154,35 @@ def test_all_entries_resolvable():
         assert hasattr(EMA, name), f"sdypy.EMA.{name} not found but listed in __all__"
         obj = getattr(EMA, name)
         assert obj is not None, f"sdypy.EMA.{name} resolved to None"
+
+
+# ---------------------------------------------------------------------------
+# (f) Model.add_frf works with a pyFRF object (get_FRF called positionally)
+# ---------------------------------------------------------------------------
+
+def _synthetic_pyfrf_object():
+    """Build a small pyFRF FRF object from synthetic time-domain data."""
+    pyFRF = pytest.importorskip("pyFRF")
+    fs = 1000
+    t = np.arange(0, 2, 1 / fs)
+    rng = np.random.default_rng(0)
+    exc = rng.standard_normal(len(t))
+    resp = rng.standard_normal(len(t))
+    return pyFRF.FRF(sampling_freq=fs, exc=exc, resp=resp,
+                      exc_type='f', resp_type='a')
+
+
+def test_add_frf_with_pyfrf_object():
+    pytest.importorskip("pyFRF")
+    frf_obj = _synthetic_pyfrf_object()
+    model = EMA.Model(pyfrf=True, lower=10, upper=400, pol_order_high=5)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        model.add_frf(frf_obj)
+
+    expected_freq = frf_obj.get_f_axis()
+    np.testing.assert_array_equal(model.freq, expected_freq)
+    expected_frf = np.vstack(frf_obj.get_FRF('default', 'receptance')).T
+    assert model.frf.shape == expected_frf.shape
+    np.testing.assert_allclose(model.frf, expected_frf)
