@@ -191,7 +191,7 @@ class SelectPolesQt(QtWidgets.QMainWindow):
         self.cluster_radio.toggled.connect(self._on_chart_type)
         self.frf_combo = QtWidgets.QComboBox()
         self.frf_combo.addItems(['Mean FRF magnitude', 'All FRFs'])
-        self.frf_combo.currentIndexChanged.connect(self._on_frf_form)
+        self.frf_combo.currentIndexChanged.connect(self._on_frf_type)
         self.unstable_check = QtWidgets.QCheckBox('Show unstable poles')
         self.unstable_check.toggled.connect(self._on_show_unstable)
         self.legend_check = QtWidgets.QCheckBox('Show legend')
@@ -665,7 +665,7 @@ class SelectPolesQt(QtWidgets.QMainWindow):
         self._home_view_saved = False
         self.canvas.draw_idle()
 
-    def _on_frf_form(self, index):
+    def _on_frf_type(self, index):
         self.frf_plot_type = 'abs' if index == 0 else 'all'
         self._redraw_frf()
         self.canvas.draw_idle()
