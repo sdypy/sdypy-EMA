@@ -23,7 +23,7 @@ Instance of the ``Model`` class
         upper=10000,
         pol_order_high=60,
         driving_point=3,
-        frf_type='accelerance'
+        frf_form='accelerance'
     )
 
 ``frf_matrix`` and ``frequency vector`` arguments
@@ -51,10 +51,10 @@ the modal shapes.
 
 where ``j`` is the driving point index.
 
-``frf_type`` argument
+``frf_form`` argument
 ---------------------
 This argument gives information about what type of FRF you are using. If the accelerations are measured and then the FRF is computed using the excitation data,
-the ``frf_type`` is ``acceleration``. If the speed is measured, the ``frf_type`` is ``mobility`` and if the displacement is measured, the ``frf_type`` is ``receptance``.
+the ``frf_form`` is ``acceleration``. If the speed is measured, the ``frf_form`` is ``mobility`` and if the displacement is measured, the ``frf_form`` is ``receptance``.
 
 It is possible to transition between accelerance, mobility and receptance:
 
@@ -79,7 +79,7 @@ If the ``frf_matrix`` and ``frequency_vector`` are not given, the ``read_uff()``
         upper=10000,
         pol_order_high=60,
         driving_point=3,
-        frf_type='accelerance'
+        frf_form='accelerance'
     )
     a.read_uff('file.uff')
 

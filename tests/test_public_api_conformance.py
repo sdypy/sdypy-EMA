@@ -7,6 +7,9 @@ Tests:
   (c) Model(frf_form=...) no warning; Model(frf_type=...) emits DeprecationWarning, same result
   (d) np, tqdm, warnings not in sdypy.EMA.__all__
   (e) every entry in sdypy.EMA.__all__ resolves via getattr
+  (f) Model.add_frf works with a pyFRF object, calling get_FRF positionally
+  (g) LSFD / LSFD_proportional / LSFD_old: frf_form positional (no warning),
+      frf_type keyword (DeprecationWarning, same result)
 """
 
 import sys
@@ -153,3 +156,89 @@ def test_all_entries_resolvable():
         assert hasattr(EMA, name), f"sdypy.EMA.{name} not found but listed in __all__"
         obj = getattr(EMA, name)
         assert obj is not None, f"sdypy.EMA.{name} resolved to None"
+
+
+# ---------------------------------------------------------------------------
+# (f) Model.add_frf works with a pyFRF object (get_FRF called positionally)
+# ---------------------------------------------------------------------------
+
+def _synthetic_pyfrf_object():
+    """Build a small pyFRF FRF object from synthetic time-domain data."""
+    pyFRF = pytest.importorskip("pyFRF")
+    fs = 1000
+    t = np.arange(0, 2, 1 / fs)
+    rng = np.random.default_rng(0)
+    exc = rng.standard_normal(len(t))
+    resp = rng.standard_normal(len(t))
+    return pyFRF.FRF(sampling_freq=fs, exc=exc, resp=resp,
+                      exc_type='f', resp_type='a')
+
+
+def test_add_frf_with_pyfrf_object():
+    pytest.importorskip("pyFRF")
+    frf_obj = _synthetic_pyfrf_object()
+    model = EMA.Model(pyfrf=True, lower=10, upper=400, pol_order_high=5)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        model.add_frf(frf_obj)
+
+    expected_freq = frf_obj.get_f_axis()
+    np.testing.assert_array_equal(model.freq, expected_freq)
+    expected_frf = np.vstack(frf_obj.get_FRF('default', 'receptance')).T
+    assert model.frf.shape == expected_frf.shape
+    np.testing.assert_allclose(model.frf, expected_frf)
+
+
+# ---------------------------------------------------------------------------
+# (g) LSFD / LSFD_proportional / LSFD_old: frf_form vs deprecated frf_type
+# ---------------------------------------------------------------------------
+
+from sdypy.EMA.EMA import LSFD, LSFD_proportional, LSFD_old  # noqa: E402
+
+_LSFD_FUNCTIONS = [LSFD, LSFD_proportional, LSFD_old]
+
+
+def _lsfd_args():
+    freq = np.linspace(1, 100, 50)
+    poles = np.array([5 + 30j, 8 + 60j])
+    rng = np.random.default_rng(1)
+    frf = rng.standard_normal((1, 50)) + 1j * rng.standard_normal((1, 50))
+    return poles, frf, freq, True, False, 0, 50
+
+
+@pytest.mark.parametrize("fn", _LSFD_FUNCTIONS, ids=lambda f: f.__name__)
+def test_lsfd_frf_form_positional_no_warning(fn):
+    poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind = _lsfd_args()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        fn(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, "receptance")
+
+
+@pytest.mark.parametrize("fn", _LSFD_FUNCTIONS, ids=lambda f: f.__name__)
+def test_lsfd_frf_type_emits_deprecation_warning(fn):
+    poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind = _lsfd_args()
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        fn(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type="receptance")
+    dep_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(dep_warnings) >= 1
+    assert "frf_form" in str(dep_warnings[0].message)
+
+
+@pytest.mark.parametrize("fn", _LSFD_FUNCTIONS, ids=lambda f: f.__name__)
+def test_lsfd_frf_type_same_result_as_frf_form(fn):
+    poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind = _lsfd_args()
+    result_form = fn(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, "receptance")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        result_type = fn(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_type="receptance")
+    for a, b in zip(result_form, result_type):
+        np.testing.assert_array_equal(a, b)
+
+
+@pytest.mark.parametrize("fn", _LSFD_FUNCTIONS, ids=lambda f: f.__name__)
+def test_lsfd_missing_frf_form_raises_typeerror(fn):
+    poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind = _lsfd_args()
+    with pytest.raises(TypeError):
+        fn(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind)

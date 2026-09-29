@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sdypy-EMA"
-version = "0.30.0"
+version = "0.31.0"
 authors = [
     { name = "Janko Slavič et al.", email = "janko.slavic@fs.uni-lj.si" },
 ]
@@ -56,6 +56,7 @@ dev = [
     "pytest",
     "build",
     "pyLump",
+    "pyFRF>=1.4",
     "flake8",
 ]
 
