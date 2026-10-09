@@ -63,9 +63,28 @@ plt.plot(acc.normal_mode()[:, :3])
 plt.xlabel("Location index")
 plt.title("Normal modes (first three)")
 
-plt.matshow(np.abs(acc.autoMAC()))
+plt.matshow(np.abs(acc.auto_mac()))
 plt.colorbar()
 plt.title("Auto-MAC")
+
+# %%
+
+# Old and new names. sdypy-EMA 0.31 renamed `frf_type` to `frf_form`
+# and `autoMAC` to `auto_mac` (SEP 2). The old names still work and emit a
+# DeprecationWarning; they will be removed in the next major version. Delete this
+# block together with the aliases.
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("always", DeprecationWarning)
+
+    # Model: `frf_form` (new) replaces `frf_type` (old)
+    acc_new = EMA.Model(frf=FRF, freq=freq, lower=10, upper=5000, frf_form="accelerance")
+    acc_old = EMA.Model(frf=FRF, freq=freq, lower=10, upper=5000, frf_type="accelerance")  # DeprecationWarning
+    print(acc_new.frf_form, acc_old.frf_form)
+
+    # `auto_mac` (new) replaces `autoMAC` (old)
+    print(np.array_equal(acc.auto_mac(), acc.autoMAC()))  # DeprecationWarning
 
 # %%
 
