@@ -1,0 +1,30 @@
+schema: spec-driven
+
+# Shown to every agent drafting an OpenSpec artifact, on every call: keep it
+# to what agents get wrong here, and point to a rule's home, never restate it.
+# The context is this package's own. The rules block between the markers is a
+# verbatim copy of the sdypy hub's openspec/config.yaml, and the hub's sibling
+# template checker compares the two: edit the rules in the hub, not here.
+
+context: |
+  sdypy-EMA is the EMA portion of the sdypy namespace (from sdypy import EMA):
+  experimental and operational modal analysis. Model estimates poles from
+  measured FRFs (lscf, lsce, rfp), selects them and computes modal constants
+  (lsfd); tools holds MAC, MSF, MCF.
+  openspec/specs/ here specs only this package's own capabilities. Org-wide
+  contracts (SEP 2 naming, public API, packaging template) live in the sdypy
+  hub's openspec/specs/ and are linked, never restated: a change to one is
+  proposed in the hub, and its code change lands here.
+  AGENTS.md routes to everything.
+
+rules:
+  # >>> shared rules from the sdypy hub (openspec/config.yaml) — edit them there
+  proposal:
+    - State whether the change is trivial (no behaviour or public-name change) or non-trivial, as the sdypy hub's AGENTS.md defines it; a trivial change gets no specs.
+  specs:
+    - One requirement states one verifiable behaviour; split a requirement that bundles several SHALLs.
+    - Every requirement body contains SHALL or MUST (validate --strict fails otherwise).
+    - New or renamed public names follow the SEP 2 nomenclature (sdypy hub, docs/source/dev/nomenclature.rst); renames keep a deprecated alias per the hub's public-api spec.
+  tasks:
+    - "Every new requirement names its verifier for REQUIREMENTS.md: a test, a checker, or a named human judge (who signs off, not only which document to read)."
+  # <<< shared rules
