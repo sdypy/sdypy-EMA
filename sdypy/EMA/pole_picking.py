@@ -3,17 +3,16 @@ import sys
 import glob
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 try:
     import tkinter as tk
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 except ImportError:
     pass  # no Tk; Model.select_poles() uses the Qt chart instead
 
-from matplotlib.figure import Figure
-
 from . import stabilization
+
+# matplotlib is imported inside SelectPoles, so that this module (and with it
+# sdypy.EMA) can be imported when matplotlib is not installed.
 
 class SelectPoles:
     def __init__(self, Model, root=None):
@@ -28,6 +27,14 @@ class SelectPoles:
 
         param model: object of pyEMA.Model
         """
+        try:
+            from matplotlib.figure import Figure
+        except ImportError as err:
+            raise ImportError(
+                'matplotlib is required for the stability chart (SelectPoles).'
+            ) from err
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+
         if root is None:
             self.root = tk.Tk()
         else:
@@ -160,6 +167,8 @@ class SelectPoles:
 
 
     def plot_stability(self, update_ticks=False):
+        import matplotlib.pyplot as plt
+
         if not update_ticks:
             self.ax1.clear()
             self.ax1.grid(True)
@@ -222,6 +231,8 @@ class SelectPoles:
 
         :param update_ticks: if True, only ticks are updated, not the whole plot.
         """
+        import matplotlib.pyplot as plt
+
         b1 = np.argwhere(((self.test_fn > 0) & ((self.test_xi > 0) & (self.xi_temp > 0))) & ((self.fn_temp > self.Model.lower) & (self.fn_temp < self.Model.upper)))
         
         if not update_ticks:

@@ -1,6 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
 import time
 import scipy.linalg
 from tqdm import tqdm
@@ -681,6 +679,15 @@ class Model():
         """
         if gui not in ('auto', 'qt', 'tk'):
             raise ValueError(f'gui must be "auto", "qt" or "tk", not {gui!r}.')
+
+        try:
+            import matplotlib  # imported here so that EMA imports without it
+        except ImportError as err:
+            raise ImportError(
+                'matplotlib is required for the stability chart '
+                '(Model.select_poles()); install it, or use '
+                'Model.select_closest_poles() instead.'
+            ) from err
 
         if gui in ('auto', 'qt'):
             try:
