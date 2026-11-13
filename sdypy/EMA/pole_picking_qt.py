@@ -14,6 +14,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolb
 from matplotlib.figure import Figure
 
 from . import stabilization
+from ._deprecation import DeprecatedAttribute
 
 PICK_RADIUS = 25     # [px] clicks further than this from every pole pick nothing
 DRAG_THRESHOLD = 5   # [px] mouse movement below this is a click, above it a drag
@@ -60,8 +61,8 @@ class _Toolbar(NavigationToolbar2QT):
 class SelectPolesQt(QtWidgets.QMainWindow):
     """Stability chart window for picking the poles of a ``Model``.
 
-    The picked poles are written to ``Model.pole_ind``, ``Model.nat_freq`` and
-    ``Model.nat_xi`` after every change, so the selection is kept when the
+    The picked poles are written to ``Model.pole_idx``, ``Model.natural_freq`` and
+    ``Model.damping_ratio`` after every change, so the selection is kept when the
     window closes. Poles already selected on the model (e.g. by
     ``select_closest_poles()``) are loaded as the starting selection.
 
@@ -72,6 +73,9 @@ class SelectPolesQt(QtWidgets.QMainWindow):
     :param xi_tol: relative damping tolerance of a stable pole
     :type xi_tol: float, optional
     """
+    # Deprecated attribute name (SEP 2), kept through v1.x.
+    H = DeprecatedAttribute('frf_reconstructed')
+
     def __init__(self, Model, fn_tol=0.001, xi_tol=0.05, parent=None):
         super().__init__(parent)
         if not getattr(Model, 'all_poles', None):
@@ -85,7 +89,7 @@ class SelectPolesQt(QtWidgets.QMainWindow):
         self.show_unstable = False
         self.show_legend = False
         self.selected = []              # (order index, pole index), sorted by frequency
-        self.H = None                   # reconstructed FRFs
+        self.frf_reconstructed = None    # reconstructed FRFs
         self._pick_history = []         # selected poles in picking order, for undo
         self._loop = None
         self._drag = None               # mouse press being tracked as a click or drag
@@ -277,7 +281,7 @@ class SelectPolesQt(QtWidgets.QMainWindow):
         return self._xi
 
     def _cluster_ylim(self):
-        in_band = (self._category == 0) & (self._f > self.Model.lower) & (self._f < self.Model.upper)
+        in_band = (self._category == 0) & (self._f > self.Model.freq_lower) & (self._f < self.Model.freq_upper)
         xi = self._xi[in_band]
         if xi.size == 0:
             return 0, 0.1
@@ -286,7 +290,7 @@ class SelectPolesQt(QtWidgets.QMainWindow):
     # -------------------------------------------------------------- drawing
     def _redraw_poles(self, reset_view=False):
         ax = self.ax_poles
-        xlim = (self.Model.lower, self.Model.upper) if reset_view else ax.get_xlim()
+        xlim = (self.Model.freq_lower, self.Model.freq_upper) if reset_view else ax.get_xlim()
         for artist in self._pole_artists:
             artist.remove()
         self._pole_artists = []
@@ -338,9 +342,9 @@ class SelectPolesQt(QtWidgets.QMainWindow):
         for artist in self._rec_artists:
             artist.remove()
         self._rec_artists = []
-        if self.H is None:
+        if self.frf_reconstructed is None:
             return
-        H = np.abs(self.H)
+        H = np.abs(self.frf_reconstructed)
         if self.frf_plot_type == 'abs':
             self._rec_artists = self.ax_frf.plot(self.Model.freq, H.mean(axis=0), color='r', lw=2)
         else:
@@ -381,12 +385,12 @@ class SelectPolesQt(QtWidgets.QMainWindow):
     # ------------------------------------------------------------ selection
     def _pole(self, k, i):
         """Natural frequency and damping ratio of pole ``i`` at order index ``k``."""
-        return float(np.ravel(self.Model.pole_freq[k])[i]), float(np.ravel(self.Model.pole_xi[k])[i])
+        return float(np.ravel(self.Model.pole_freq[k])[i]), float(np.ravel(self.Model.pole_damping_ratio[k])[i])
 
     def _pole_index(self, k, f, xi):
         """Index in ``Model.all_poles[k]`` of the pole with frequency ``f`` and damping ``xi``."""
         pf = np.ravel(self.Model.pole_freq[k])
-        px = np.ravel(self.Model.pole_xi[k])
+        px = np.ravel(self.Model.pole_damping_ratio[k])
         cost = np.abs(pf - f) + np.abs(px - xi) * f
         near = np.flatnonzero(cost <= cost.min() + 1e-9 * max(f, 1.0))
         # a conjugate pair shares f and xi; take the positive-imaginary pole, as select_closest_poles does
@@ -395,8 +399,8 @@ class SelectPolesQt(QtWidgets.QMainWindow):
 
     def _existing_selection(self):
         """Poles already selected on the model, if they still match its current poles."""
-        pole_ind = getattr(self.Model, 'pole_ind', None)
-        nat_freq = getattr(self.Model, 'nat_freq', None)
+        pole_ind = getattr(self.Model, 'pole_idx', None)
+        nat_freq = getattr(self.Model, 'natural_freq', None)
         if pole_ind is None or nat_freq is None or len(pole_ind) == 0 or len(pole_ind) != len(nat_freq):
             return []
         poles = []
@@ -415,23 +419,23 @@ class SelectPolesQt(QtWidgets.QMainWindow):
         self._pick_history = ([p for p in self._pick_history if p in self.selected]
                               + [p for p in self.selected if p not in self._pick_history])
 
-        self.Model.pole_ind = [[k, i] for k, i in self.selected]
-        self.Model.nat_freq = [self._pole(k, i)[0] for k, i in self.selected]
-        self.Model.nat_xi = [self._pole(k, i)[1] for k, i in self.selected]
+        self.Model.pole_idx = [[k, i] for k, i in self.selected]
+        self.Model.natural_freq = [self._pole(k, i)[0] for k, i in self.selected]
+        self.Model.damping_ratio = [self._pole(k, i)[1] for k, i in self.selected]
 
         self._reconstruct()
         self._refresh_table()
         self._update_selection_artists()
 
     def _reconstruct(self):
-        self.H = None
+        self.frf_reconstructed = None
         if self.selected:
             freq = self.Model.freq
             try:
-                self.H, _ = self.Model.get_constants(
+                self.frf_reconstructed, _ = self.Model.get_constants(
                     whose_poles='own',
-                    f_lower=max(self.Model.lower, freq[0]),
-                    f_upper=min(self.Model.upper, freq[-1]))
+                    freq_lower=max(self.Model.freq_lower, freq[0]),
+                    freq_upper=min(self.Model.freq_upper, freq[-1]))
             except Exception as err:
                 self.statusBar().showMessage(f'FRF reconstruction failed: {err}', 8000)
         self._redraw_reconstruction()
@@ -518,7 +522,7 @@ class SelectPolesQt(QtWidgets.QMainWindow):
     def export_poles(self, path):
         """Write the selected poles to a CSV file.
 
-        Columns: natural frequency [Hz], damping ratio, and the two ``Model.pole_ind`` indices.
+        Columns: natural frequency [Hz], damping ratio, and the two ``Model.pole_idx`` indices.
         """
         rows = np.array([(*self._pole(k, i), k, i) for k, i in self.selected], dtype=float).reshape(-1, 4)
         np.savetxt(path, rows, delimiter=',', fmt=['%.6f', '%.6e', '%d', '%d'],

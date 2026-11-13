@@ -46,9 +46,9 @@ class SelectPoles:
         self.hide_poles = 1
         self.frf_plot_type = 'abs'
 
-        self.Model.nat_freq = []
-        self.Model.nat_xi = []
-        self.Model.pole_ind = []
+        self.Model.natural_freq = []
+        self.Model.damping_ratio = []
+        self.Model.pole_idx = []
         
         self.root.title('Stability Chart')
         self.fig = Figure(figsize=(15, 8))
@@ -130,7 +130,7 @@ class SelectPoles:
         elif self.frf_plot_type == 'all':
             self.ax2.semilogy(self.Model.freq, np.abs(self.Model.frf.T), alpha=0.3, color='k')
 
-        if not initial and len(self.Model.nat_freq) > 0:
+        if not initial and len(self.Model.natural_freq) > 0:
             self.H, self.A = self.Model.get_constants(whose_poles='own', FRF_ind='all', least_squares_type='new')
             if self.frf_plot_type == 'abs':
                 self.ax2.semilogy(self.Model.freq, np.average(
@@ -139,7 +139,7 @@ class SelectPoles:
                 self.ax2.semilogy(self.Model.freq, np.abs(self.H.T), color='r', lw=1)
         
         else:
-            x_position = (self.Model.lower + self.Model.upper) / 2
+            x_position = (self.Model.freq_lower + self.Model.freq_upper) / 2
             y_position = np.max(np.abs(self.Model.frf))
             message = [
                 'Select a pole: SHIFT + LEFT mouse button',
@@ -149,7 +149,7 @@ class SelectPoles:
                 fontsize=12, verticalalignment='top', horizontalalignment='center',
                 bbox=dict(facecolor='lightgreen', edgecolor='lightgreen'))
         
-        self.ax1.set_xlim([self.Model.lower, self.Model.upper])
+        self.ax1.set_xlim([self.Model.freq_lower, self.Model.freq_upper])
         self.ax2.set_xlabel('Frequency [Hz]')
         self.ax2.set_ylabel('Magnitude')
         self.fig.canvas.draw()
@@ -198,10 +198,10 @@ class SelectPoles:
                 p3 = self.ax1.plot(self.fn_temp[c[:, 0], c[:, 1]], 1+c[:, 1]%self.Model.pol_order_high, 'r.',
                             markersize=4, label="Unstable frequency, unstable damping")
             
-            self.line, = self.ax1.plot(self.Model.nat_freq, np.repeat(
-                    self.Model.pol_order_high, len(self.Model.nat_freq)), 'kv', markersize=8)
-            self.selected, = self.ax1.plot([self.Model.pole_freq[p[0]][p[1]] for p in self.Model.pole_ind], 
-                                            [p[0] for p in self.Model.pole_ind], 'ko')
+            self.line, = self.ax1.plot(self.Model.natural_freq, np.repeat(
+                    self.Model.pol_order_high, len(self.Model.natural_freq)), 'kv', markersize=8)
+            self.selected, = self.ax1.plot([self.Model.pole_freq[p[0]][p[1]] for p in self.Model.pole_idx], 
+                                            [p[0] for p in self.Model.pole_idx], 'ko')
             
             if self.show_legend:
                 self.pole_legend = self.ax1.legend(loc='lower center', ncol=4, frameon=True)
@@ -213,12 +213,12 @@ class SelectPoles:
 
             plt.tight_layout()
         else:
-            self.line.set_xdata(np.asarray(self.Model.nat_freq))  # update data
-            self.line.set_ydata(np.repeat(self.Model.pol_order_high*1.04, len(self.Model.nat_freq)))
+            self.line.set_xdata(np.asarray(self.Model.natural_freq))  # update data
+            self.line.set_ydata(np.repeat(self.Model.pol_order_high*1.04, len(self.Model.natural_freq)))
 
             self.selected.set_xdata([self.Model.pole_freq[p[0]][p[1]]
-                                for p in self.Model.pole_ind])  # update data
-            self.selected.set_ydata([p[0]%self.Model.pol_order_high for p in self.Model.pole_ind])
+                                for p in self.Model.pole_idx])  # update data
+            self.selected.set_ydata([p[0]%self.Model.pol_order_high for p in self.Model.pole_idx])
 
             plt.tight_layout()
 
@@ -233,7 +233,7 @@ class SelectPoles:
         """
         import matplotlib.pyplot as plt
 
-        b1 = np.argwhere(((self.test_fn > 0) & ((self.test_xi > 0) & (self.xi_temp > 0))) & ((self.fn_temp > self.Model.lower) & (self.fn_temp < self.Model.upper)))
+        b1 = np.argwhere(((self.test_fn > 0) & ((self.test_xi > 0) & (self.xi_temp > 0))) & ((self.fn_temp > self.Model.freq_lower) & (self.fn_temp < self.Model.freq_upper)))
         
         if not update_ticks:
             self.ax1.clear()
@@ -262,10 +262,10 @@ class SelectPoles:
                 p3 = self.ax1.plot(self.fn_temp[c[:, 0], c[:, 1]], self.xi_temp[c[:, 0], c[:, 1]], 'r.',
                             markersize=4, label="Unstable frequency, unstable damping")
             
-            self.line, = self.ax1.plot(self.Model.nat_freq, np.repeat(
-                    1.05*np.max(self.xi_temp[b1[:, 0], b1[:, 1]]), len(self.Model.nat_freq)), 'kv', markersize=8)
-            self.selected, = self.ax1.plot([self.Model.pole_freq[p[0]][p[1]] for p in self.Model.pole_ind], 
-                                            [self.Model.pole_xi[p[0]][p[1]] for p in self.Model.pole_ind], 'ko')
+            self.line, = self.ax1.plot(self.Model.natural_freq, np.repeat(
+                    1.05*np.max(self.xi_temp[b1[:, 0], b1[:, 1]]), len(self.Model.natural_freq)), 'kv', markersize=8)
+            self.selected, = self.ax1.plot([self.Model.pole_freq[p[0]][p[1]] for p in self.Model.pole_idx], 
+                                            [self.Model.pole_damping_ratio[p[0]][p[1]] for p in self.Model.pole_idx], 'ko')
             
             if self.show_legend:
                 self.pole_legend = self.ax1.legend(loc='lower center', ncol=4, frameon=True)
@@ -275,11 +275,11 @@ class SelectPoles:
             self.ax1.set_ylabel('Damping ratio')
             plt.tight_layout()
         else:
-            self.line.set_xdata(np.asarray(self.Model.nat_freq))  # update data
-            self.line.set_ydata(np.repeat(1.05*np.max(self.xi_temp[b1[:, 0], b1[:, 1]]), len(self.Model.nat_freq)))
+            self.line.set_xdata(np.asarray(self.Model.natural_freq))  # update data
+            self.line.set_ydata(np.repeat(1.05*np.max(self.xi_temp[b1[:, 0], b1[:, 1]]), len(self.Model.natural_freq)))
 
-            self.selected.set_xdata([self.Model.pole_freq[p[0]][p[1]] for p in self.Model.pole_ind])  # update data
-            self.selected.set_ydata([self.Model.pole_xi[p[0]][p[1]] for p in self.Model.pole_ind])
+            self.selected.set_xdata([self.Model.pole_freq[p[0]][p[1]] for p in self.Model.pole_idx])  # update data
+            self.selected.set_ydata([self.Model.pole_damping_ratio[p[0]][p[1]] for p in self.Model.pole_idx])
         
         to_lim = self.xi_temp[b1[:, 0], b1[:, 1]]
         up_lim = min(np.max(to_lim), np.mean(to_lim)+2*np.std(to_lim))
@@ -303,9 +303,9 @@ class SelectPoles:
             # Find closest frequency
             sel = np.argmin(np.abs(self.Model.pole_freq[y_ind] - self.x_data_pole))
 
-        self.Model.pole_ind.append([y_ind, sel])
-        self.Model.nat_freq.append(self.Model.pole_freq[y_ind][sel])
-        self.Model.nat_xi.append(self.Model.pole_xi[y_ind][sel])
+        self.Model.pole_idx.append([y_ind, sel])
+        self.Model.natural_freq.append(self.Model.pole_freq[y_ind][sel])
+        self.Model.damping_ratio.append(self.Model.pole_damping_ratio[y_ind][sel])
         self.sort_selected_poles()
 
 
@@ -316,19 +316,19 @@ class SelectPoles:
         min_ = []
         for y_ind in range(len(self.Model.pole_freq)):
             for sel in range(len(self.Model.pole_freq[y_ind])):
-                min_.append([y_ind, sel, np.abs(self.Model.pole_freq[y_ind][sel]-self.x_data_pole), np.abs(self.Model.pole_xi[y_ind][sel]-self.y_data_pole[0])])
+                min_.append([y_ind, sel, np.abs(self.Model.pole_freq[y_ind][sel]-self.x_data_pole), np.abs(self.Model.pole_damping_ratio[y_ind][sel]-self.y_data_pole[0])])
 
         min_a = np.asarray(min_)
         # select the poles that have a frequency within 2% of the observed range
-        mask = min_a[:, 2] < (self.Model.upper - self.Model.lower) * 0.02
+        mask = min_a[:, 2] < (self.Model.freq_upper - self.Model.freq_lower) * 0.02
         min_ind_x = np.argmin(min_a[mask][:, 3])
         
         y_ind = int(min_a[mask][min_ind_x, 0])
         sel = int(min_a[mask][min_ind_x, 1])
 
-        self.Model.pole_ind.append([y_ind, sel])
-        self.Model.nat_freq.append(self.Model.pole_freq[y_ind][sel])
-        self.Model.nat_xi.append(self.Model.pole_xi[y_ind][sel])
+        self.Model.pole_idx.append([y_ind, sel])
+        self.Model.natural_freq.append(self.Model.pole_freq[y_ind][sel])
+        self.Model.damping_ratio.append(self.Model.pole_damping_ratio[y_ind][sel])
         self.sort_selected_poles()
     
 
@@ -347,22 +347,22 @@ class SelectPoles:
         # On button 3 press (left mouse button)
         elif event.button == 3 and self.shift_is_held:
             try:
-                del self.Model.nat_freq[-1]  # delete last point
-                del self.Model.nat_xi[-1]
-                del self.Model.pole_ind[-1]
+                del self.Model.natural_freq[-1]  # delete last point
+                del self.Model.damping_ratio[-1]
+                del self.Model.pole_idx[-1]
                 self.plot_frf()
             except:
                 pass
 
         elif event.button == 2 and self.shift_is_held:
-            if len(self.Model.nat_freq) == 0:
+            if len(self.Model.natural_freq) == 0:
                 return
             
-            i = np.argmin(np.abs(self.Model.nat_freq - event.xdata))
+            i = np.argmin(np.abs(self.Model.natural_freq - event.xdata))
             try:
-                del self.Model.nat_freq[i]
-                del self.Model.nat_xi[i]
-                del self.Model.pole_ind[i]
+                del self.Model.natural_freq[i]
+                del self.Model.damping_ratio[i]
+                del self.Model.pole_idx[i]
                 self.plot_frf()
             except:
                 pass
@@ -429,10 +429,10 @@ class SelectPoles:
 
 
     def sort_selected_poles(self):
-        _ = np.argsort(self.Model.nat_freq)
-        self.Model.pole_ind = list(np.array(self.Model.pole_ind)[_])
-        self.Model.nat_freq = list(np.array(self.Model.nat_freq)[_])
-        self.Model.nat_xi = list(np.array(self.Model.nat_xi)[_])
+        _ = np.argsort(self.Model.natural_freq)
+        self.Model.pole_idx = list(np.array(self.Model.pole_idx)[_])
+        self.Model.natural_freq = list(np.array(self.Model.natural_freq)[_])
+        self.Model.damping_ratio = list(np.array(self.Model.damping_ratio)[_])
 
 
     def show_help(self):

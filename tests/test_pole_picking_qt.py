@@ -26,7 +26,7 @@ def qapp():
 
 def make_model(method="lscf", pol_order_high=60):
     freq, H1_main = np.load("./data/acc_data.npy", allow_pickle=True)
-    model = EMA.Model(frf=H1_main[:, 1, :], freq=freq, lower=10, upper=5000, pol_order_high=pol_order_high)
+    model = EMA.Model(frf=H1_main[:, 1, :], freq=freq, freq_lower=10, freq_upper=5000, pol_order_high=pol_order_high)
     model.get_poles(method=method, show_progress=False)
     return model
 
@@ -44,11 +44,11 @@ def test_pick_all_modes(window):
         assert window.pick_pole(f, 45)
 
     model = window.Model
-    assert len(model.nat_freq) == len(APPROX_NAT_FREQ)
-    np.testing.assert_allclose(model.nat_freq, APPROX_NAT_FREQ, rtol=0.02)
-    assert np.all(np.diff(model.nat_freq) > 0)
+    assert len(model.natural_freq) == len(APPROX_NAT_FREQ)
+    np.testing.assert_allclose(model.natural_freq, APPROX_NAT_FREQ, rtol=0.02)
+    assert np.all(np.diff(model.natural_freq) > 0)
     assert window.table.rowCount() == len(APPROX_NAT_FREQ)
-    assert window.H.shape == model.frf.shape
+    assert window.frf_reconstructed.shape == model.frf.shape
 
     H, A = model.get_constants(whose_poles="own")
     assert A.shape == (6, len(APPROX_NAT_FREQ))
@@ -75,13 +75,13 @@ def test_remove_and_undo(window):
     window.pick_pole(176, 45)
 
     assert window.remove_pole(480)
-    np.testing.assert_allclose(window.Model.nat_freq, [176, 932], rtol=0.02)
+    np.testing.assert_allclose(window.Model.natural_freq, [176, 932], rtol=0.02)
 
     window.undo_last_pick()  # last pick was 176 Hz
-    np.testing.assert_allclose(window.Model.nat_freq, [932], rtol=0.02)
+    np.testing.assert_allclose(window.Model.natural_freq, [932], rtol=0.02)
 
     window.clear_selection()
-    assert window.Model.pole_ind == [] and window.H is None
+    assert window.Model.pole_idx == [] and window.frf_reconstructed is None
 
 
 def send(window, name, x, y, **kwargs):
@@ -170,7 +170,7 @@ def test_double_click_resets_view(window):
     send(window, "button_release_event", *xy, button=1)
 
     # ... which the double-click takes back, keeping the earlier pick
-    np.testing.assert_allclose(window.Model.nat_freq, [1534], rtol=0.02)
+    np.testing.assert_allclose(window.Model.natural_freq, [1534], rtol=0.02)
     np.testing.assert_allclose(window.ax_poles.get_xlim(), xlim)
 
 
@@ -203,7 +203,7 @@ def test_views_and_criteria_keep_selection(window):
     window.canvas.draw()
 
     assert len(window.selected) == 1
-    np.testing.assert_allclose(window.Model.nat_freq, [1534], rtol=0.02)
+    np.testing.assert_allclose(window.Model.natural_freq, [1534], rtol=0.02)
 
 
 def test_loads_existing_selection(qapp):
@@ -216,8 +216,8 @@ def test_loads_existing_selection(qapp):
 
 def test_ignores_stale_selection(qapp):
     model = make_model()
-    model.pole_ind = [[40, 10_000]]
-    model.nat_freq = [123.0]
+    model.pole_idx = [[40, 10_000]]
+    model.natural_freq = [123.0]
     win = SelectPolesQt(model)
     assert win.selected == []
     win.close()
@@ -239,7 +239,7 @@ def test_export_poles(window, tmp_path):
     window.export_poles(path)
     data = np.loadtxt(path, delimiter=",", skiprows=1)
     assert data.shape == (2, 4)
-    np.testing.assert_allclose(data[:, 0], window.Model.nat_freq)
+    np.testing.assert_allclose(data[:, 0], window.Model.natural_freq)
 
 
 def test_select_poles_blocks_until_closed(qapp):
@@ -253,9 +253,17 @@ def test_select_poles_blocks_until_closed(qapp):
 
     QtCore.QTimer.singleShot(500, pick_and_close)
     model.select_poles(gui="qt")
-    assert len(model.nat_freq) == 1
+    assert len(model.natural_freq) == 1
 
 
 def test_select_poles_rejects_unknown_gui(qapp):
     with pytest.raises(ValueError):
         make_model().select_poles(gui="wx")
+
+
+def test_old_reconstruction_name_warns(window):
+    """``SelectPolesQt.H`` is a deprecated alias of ``frf_reconstructed`` (SEP 2)."""
+    assert window.pick_pole(APPROX_NAT_FREQ[0], 45)
+    with pytest.warns(DeprecationWarning, match="frf_reconstructed"):
+        old = window.H
+    np.testing.assert_array_equal(old, window.frf_reconstructed)

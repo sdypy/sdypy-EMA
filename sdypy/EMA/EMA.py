@@ -35,6 +35,7 @@ def _freq_to_index(freq, target, label):
     return int(np.argmin(np.abs(freq - target)))
 
 from .pole_picking import SelectPoles
+from ._deprecation import DeprecatedAttribute, reject_both
 from . import tools
 from . import stabilization
 from . import normal_modes
@@ -44,29 +45,40 @@ class Model():
     Modal model of frequency response functions.
     """
 
+    # Deprecated attribute names (SEP 2), kept through v1.x.
+    lower = DeprecatedAttribute('freq_lower')
+    upper = DeprecatedAttribute('freq_upper')
+    pole_xi = DeprecatedAttribute('pole_damping_ratio')
+    pole_ind = DeprecatedAttribute('pole_idx')
+    nat_freq = DeprecatedAttribute('natural_freq')
+    nat_xi = DeprecatedAttribute('damping_ratio')
+    H = DeprecatedAttribute('frf_reconstructed')
+
     def __init__(self,
                  frf=None,
                  freq=None,
                  dt=None,
-                 lower=50,
-                 upper=10000,
+                 freq_lower=50,
+                 freq_upper=10000,
                  pol_order_high=100,
                  pyfrf=False,
                  get_partfactors=False,
                  driving_point=None,
                  frf_form='accelerance',
                  *,
-                 frf_type=None):
+                 frf_type=None,
+                 lower=None,
+                 upper=None):
         """
         :param frf: Frequency response function matrix
             A ndarray with shape `(n_locations, n_frequency_points)`.
         :type frf: ndarray
         :param freq: Frequency array
         :type freq: array
-        :param lower: Lower limit for pole determination [Hz]
-        :type lower: int, float
-        :param upper: Upper limit for pole determination [Hz]
-        :type upper: int, float
+        :param freq_lower: Lower limit for pole determination [Hz]
+        :type freq_lower: int, float
+        :param freq_upper: Upper limit for pole determination [Hz]
+        :type freq_upper: int, float
         :param pol_order_high: Highest order of the polynomial
         :type pol_order_high: int
         :param pyfrf: add FRFs directly from the pyFRF object
@@ -80,6 +92,8 @@ class Model():
             'mobility' or 'accelerance'. The correct FRF type selection is important for
             the LSFD algorithm.
         :param frf_type: deprecated; use ``frf_form`` instead.
+        :param lower: deprecated; use ``freq_lower`` instead.
+        :param upper: deprecated; use ``freq_upper`` instead.
         """
         if frf_type is not None:
             warnings.warn(
@@ -88,19 +102,35 @@ class Model():
                 stacklevel=2,
             )
             frf_form = frf_type
+        if lower is not None:
+            warnings.warn(
+                "lower is deprecated; use freq_lower instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            reject_both('lower', 'freq_lower', freq_lower, 50)
+            freq_lower = lower
+        if upper is not None:
+            warnings.warn(
+                "upper is deprecated; use freq_upper instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            reject_both('upper', 'freq_upper', freq_upper, 10000)
+            freq_upper = upper
         try:
-            self.lower = float(lower)
+            self.freq_lower = float(freq_lower)
         except:
-            raise Exception('lower must be float or integer')
-        if self.lower < 0:
-            raise Exception('lower must be more than or equal to zero')
+            raise Exception('freq_lower must be float or integer')
+        if self.freq_lower < 0:
+            raise Exception('freq_lower must be more than or equal to zero')
 
         try:
-            self.upper = float(upper)
+            self.freq_upper = float(freq_upper)
         except:
-            raise Exception('upper must be float or integer')
-        if self.upper < self.lower:
-            raise Exception('upper must be greater than lower')
+            raise Exception('freq_upper must be float or integer')
+        if self.freq_upper < self.freq_lower:
+            raise Exception('freq_upper must be greater than freq_lower')
 
         if pyfrf:
             self.frf = 0
@@ -119,8 +149,8 @@ class Model():
             if self.freq.ndim != 1:
                 raise Exception(f'ndim of freq is not equal to 1 ({self.freq.ndim})')
 
-            # Cut off the frequencies above 'upper' argument
-            cutoff_ind = _freq_to_index(self.freq, self.upper, 'upper')
+            # Cut off the frequencies above 'freq_upper' argument
+            cutoff_ind = _freq_to_index(self.freq, self.freq_upper, 'freq_upper')
             self.frf = self.frf[:, :cutoff_ind]
             self.freq = self.freq[:cutoff_ind]
         else:
@@ -223,7 +253,7 @@ class Model():
         uffFRF = np.asarray([uff_data[ind]['data'] for ind in ind58 if uff_data[ind]['func_type'] == 4])
         ufffreq = np.asarray([uff_data[ind]['x'] for ind in ind58 if uff_data[ind]['func_type'] == 4])[0]
 
-        cutoff_ind = _freq_to_index(ufffreq, self.upper, 'upper')
+        cutoff_ind = _freq_to_index(ufffreq, self.freq_upper, 'freq_upper')
 
         self.freq = ufffreq[:cutoff_ind]
         self.omega = 2 * np.pi * self.freq
@@ -359,7 +389,7 @@ class Model():
 
         self.all_poles = []
         self.pole_freq = []
-        self.pole_xi = []
+        self.pole_damping_ratio = []
         self.partfactors = []
 
         # Pole estimators rely on log/sqrt operations that emit numpy
@@ -395,7 +425,7 @@ class Model():
             self.freq = np.hstack((freq_start, self.freq))
             self.frf = np.column_stack((np.zeros((len(freq_start), self.frf.shape[0])).T, self.frf))
 
-        lower_ind = np.argmin(np.abs(self.freq - self.lower))
+        lower_ind = np.argmin(np.abs(self.freq - self.freq_lower))
         nf = 2 * (self.frf[:, lower_ind:].shape[1] - 1)
         nf_full = 2 * (self.frf.shape[1] - 1)
         nr = self.frf.shape[0]
@@ -433,16 +463,16 @@ class Model():
 
             #sr = sr[np.isfinite(sr) & (np.abs(sr) < 1.0)]
             poles = (np.log(sr) / self.sampling_time).astype(complex)
-            poles += 1j * 2.0*np.pi*self.lower # add j*w_lower to frequencies to account for the lower limit
+            poles += 1j * 2.0*np.pi*self.freq_lower # add j*w_lower to frequencies to account for the lower limit
 
             f_poles, zeta = tools.complex_freq_to_freq_and_damp(poles)
 
             # ToDo: make this a parameterized option
-            valid_mask = (np.abs(f_poles) > self.lower) & (np.abs(f_poles) < self.upper * 0.99)
+            valid_mask = (np.abs(f_poles) > self.freq_lower) & (np.abs(f_poles) < self.freq_upper * 0.99)
             amt_rejected = np.sum(~valid_mask)
             if amt_rejected > 0:
                 #ToDo: add a warning to the (a?) logger and stop printing as it is very slow & verbose
-                #print(f'Warning: {amt_rejected} poles were rejected because they are not in the frequency range ({self.lower} Hz < f_pole < {self.upper} Hz).')
+                #print(f'Warning: {amt_rejected} poles were rejected because they are not in the frequency range ({self.freq_lower} Hz < f_pole < {self.freq_upper} Hz).')
                 pass
 
             # Identical to approch for LSCF
@@ -457,7 +487,7 @@ class Model():
 
             self.all_poles.append(poles)
             self.pole_freq.append(f_poles)
-            self.pole_xi.append(zeta)
+            self.pole_damping_ratio.append(zeta)
 
     def _get_poles_lscf(self, tqdm_range):
         self.n_bands = 1
@@ -469,7 +499,7 @@ class Model():
             self.freq = np.hstack((freq_start, self.freq))
             self.frf = np.column_stack((np.zeros((len(freq_start), self.frf.shape[0])).T, self.frf))
 
-        lower_ind = np.argmin(np.abs(self.freq - self.lower))
+        lower_ind = np.argmin(np.abs(self.freq - self.freq_lower))
         n = self.pol_order_high * 2
         nf = 2 * (self.frf.shape[1] - 1)
         nr = self.frf.shape[0]
@@ -515,7 +545,7 @@ class Model():
 
             self.all_poles.append(poles)
             self.pole_freq.append(f_pole)
-            self.pole_xi.append(ceta)
+            self.pole_damping_ratio.append(ceta)
 
     def _get_poles_rfp(self, tqdm_range):
         self.n_bands = 1
@@ -531,7 +561,7 @@ class Model():
             )
             n = 20
 
-        lower_ind = np.argmin(np.abs(self.freq - self.lower))
+        lower_ind = np.argmin(np.abs(self.freq - self.freq_lower))
         self.frf = self.frf[:, lower_ind:]
         self.freq = self.freq[lower_ind:]
         self.omega = 2 * np.pi * self.freq
@@ -560,7 +590,7 @@ class Model():
 
             self.all_poles.append(poles)
             self.pole_freq.append(f_pole)
-            self.pole_xi.append(ceta)
+            self.pole_damping_ratio.append(ceta)
 
         self.freq *= freq_scal_fact
         self.omega *= freq_scal_fact
@@ -577,7 +607,7 @@ class Model():
             n = 20
         self.len_band = 800
 
-        lower_ind = np.argmin(np.abs(self.freq - self.lower))
+        lower_ind = np.argmin(np.abs(self.freq - self.freq_lower))
         self.frf = self.frf[:, lower_ind:]
         self.freq = self.freq[lower_ind:]
         self.omega = 2 * np.pi * self.freq
@@ -620,7 +650,7 @@ class Model():
 
                     self.all_poles.append(poles)
                     self.pole_freq.append(f_pole)
-                    self.pole_xi.append(ceta)
+                    self.pole_damping_ratio.append(ceta)
 
         # Izračun polov delnega frekvenčnega pasu
         # Frequency scaling
@@ -645,7 +675,7 @@ class Model():
 
             self.all_poles.append(poles)
             self.pole_freq.append(f_pole)
-            self.pole_xi.append(ceta)
+            self.pole_damping_ratio.append(ceta)
 
     def select_poles(self, gui='auto'):
         """Select stable poles from stability chart.
@@ -664,18 +694,18 @@ class Model():
         1. Using stability chart
 
         >>> a.select_poles() # pick poles
-        >>> a.nat_freq # natural frequencies
-        >>> a.nat_xi # damping coefficients
-        >>> a.H # reconstructed FRF matrix
+        >>> a.natural_freq # natural frequencies
+        >>> a.damping_ratio # damping coefficients
+        >>> a.frf_reconstructed # reconstructed FRF matrix
         >>> a.A # modal constants (a.A[:, -2:] are Lower and Upper residual)
 
         2. Using approximate natural frequencies
 
         >>> approx_nat_freq = [234, 545]
         >>> a.select_closest_poles(approx_nat_freq)
-        >>> a.nat_freq # natural frequencies
-        >>> a.nat_xi # damping coefficients
-        >>> H, A = a.get_constants(whose_poles='own', FRF_ind='all) # reconstruction
+        >>> a.natural_freq # natural frequencies
+        >>> a.damping_ratio # damping coefficients
+        >>> frf_reconstructed, A = a.get_constants() # reconstruction
         """
         if gui not in ('auto', 'qt', 'tk'):
             raise ValueError(f'gui must be "auto", "qt" or "tk", not {gui!r}.')
@@ -723,9 +753,9 @@ class Model():
         # Find cloeset frequency
         sel = np.argmin(np.abs(self.pole_freq[y_ind] - self.x_data_pole))
 
-        self.pole_ind.append([y_ind, sel])
-        self.nat_freq.append(self.pole_freq[y_ind][sel])
-        self.nat_xi.append(self.pole_xi[y_ind][sel])
+        self.pole_idx.append([y_ind, sel])
+        self.natural_freq.append(self.pole_freq[y_ind][sel])
+        self.damping_ratio.append(self.pole_damping_ratio[y_ind][sel])
 
     def select_closest_poles(self, approx_nat_freq, f_window=50, fn_temp=0.001, xi_temp=0.05):
         """
@@ -738,7 +768,7 @@ class Model():
         :param f_window: width of the optimization frequency window when searching for stable poles
         :type f_window: float, int
         """
-        pole_ind = []
+        pole_idx = []
         sel_ind = []
 
         Nmax = self.pol_order_high
@@ -788,17 +818,18 @@ class Model():
                 2*np.pi*fn_temp[f_sel])*np.sqrt(1-xi_temp[f_sel]**2)
             _sel = np.argmin(np.abs(self.all_poles[f_sel[1]] - selected_pole))
 
-            pole_ind.append([f_sel[1], _sel])
+            pole_idx.append([f_sel[1], _sel])
             sel_ind.append([f_sel[1], f_sel[0]])
 
         sel_ind = np.asarray(sel_ind, dtype=int)
-        self.pole_ind = np.asarray(pole_ind, dtype=int)
+        self.pole_idx = np.asarray(pole_idx, dtype=int)
 
-        self.nat_freq = f_stable[sel_ind[:, 1], sel_ind[:, 0]]
-        self.nat_xi = xi_stable[sel_ind[:, 1], sel_ind[:, 0]]
+        self.natural_freq = f_stable[sel_ind[:, 1], sel_ind[:, 0]]
+        self.damping_ratio = xi_stable[sel_ind[:, 1], sel_ind[:, 0]]
 
     def get_constants(self, method='lsfd', whose_poles='own', FRF_ind='all',
-                      f_lower=None, f_upper=None, complex_mode=True, upper_r=True, lower_r=True, least_squares_type='new'):
+                      freq_lower=None, freq_upper=None, complex_mode=True, upper_r=True, lower_r=True, least_squares_type='new',
+                      *, f_lower=None, f_upper=None):
         """
         Least square frequency domain 1D (Participation factor excluded)
 
@@ -806,17 +837,19 @@ class Model():
         :type whose_poles: object or string ('own'), optional
         :param FRF_ind: FRF at which location to reconstruct, defaults to 'all'
         :type FRF_ind: int or 'all', optional
-        :param f_lower: lower limit on frequency for reconstruction. If None, self.lower is used, defaults to None
-        :type f_lower: float, optional
-        :param f_upper: upper limit on frequency for reconstruction. If None, self.upper is used, defaults to None
-        :type f_upper: float, optional
+        :param freq_lower: lower limit on frequency for reconstruction. If None, self.freq_lower is used, defaults to None
+        :type freq_lower: float, optional
+        :param freq_upper: upper limit on frequency for reconstruction. If None, self.freq_upper is used, defaults to None
+        :type freq_upper: float, optional
         :param complex_mode: Currently unused; kept for backwards compatibility.
         :type complex_mode: bool, optional
         :param upper_r: Compute upper residual, defaults to True
         :type upper_r: bool, optional
         :param lower_r: Compute lower residual, defaults to True
         :type lower_r: bool, optional
-        :return: reconstructed FRFs and modal constants ``(H, A)``.
+        :param f_lower: deprecated; use ``freq_lower`` instead.
+        :param f_upper: deprecated; use ``freq_upper`` instead.
+        :return: reconstructed FRFs and modal constants ``(frf_reconstructed, A)``.
         """
         if method not in ['lsfd', 'lsfd_proportional']:
             raise Exception(
@@ -846,41 +879,58 @@ class Model():
                 stacklevel=2,
             )
 
+        if f_lower is not None:
+            warnings.warn(
+                "f_lower is deprecated; use freq_lower instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            reject_both('f_lower', 'freq_lower', freq_lower, None)
+            freq_lower = f_lower
+        if f_upper is not None:
+            warnings.warn(
+                "f_upper is deprecated; use freq_upper instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            reject_both('f_upper', 'freq_upper', freq_upper, None)
+            freq_upper = f_upper
+
         if whose_poles == 'own':
             whose_poles = self
 
-        pole_ind = np.asarray(whose_poles.pole_ind, dtype=int)
-        n_poles = pole_ind.shape[0]
+        pole_idx = np.asarray(whose_poles.pole_idx, dtype=int)
+        n_poles = pole_idx.shape[0]
         poles = []
         for i in range(n_poles):
-            poles.append(whose_poles.all_poles[pole_ind[i, 0]][pole_ind[i, 1]])
+            poles.append(whose_poles.all_poles[pole_idx[i, 0]][pole_idx[i, 1]])
         poles = np.asarray(poles)
 
         # concatenate frequency and FRF array
-        if f_lower is None:
-            f_lower = self.lower
+        if freq_lower is None:
+            freq_lower = self.freq_lower
 
-        if f_upper is None:
-            f_upper = self.upper
+        if freq_upper is None:
+            freq_upper = self.freq_upper
 
-        lower_ind = _freq_to_index(self.freq, f_lower, 'f_lower')
-        upper_ind = _freq_to_index(self.freq, f_upper, 'f_upper')
+        lower_idx = _freq_to_index(self.freq, freq_lower, 'freq_lower')
+        upper_idx = _freq_to_index(self.freq, freq_upper, 'freq_upper')
 
         # Modal constant identification. LSFD residual terms divide by
         # omega, which is zero at DC; suppress those warnings locally.
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', RuntimeWarning)
             if method == 'lsfd':
-                self.A, self.H, self.LR, self.UR = LSFD(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_form)
+                self.A, self.frf_reconstructed, self.LR, self.UR = LSFD(poles, self.frf, self.freq, lower_r, upper_r, lower_idx, upper_idx, self.frf_form)
             elif method == 'lsfd_proportional':
-                self.A, self.H, self.LR, self.UR = LSFD_proportional(poles, self.frf, self.freq, lower_r, upper_r, lower_ind, upper_ind, self.frf_form)
+                self.A, self.frf_reconstructed, self.LR, self.UR = LSFD_proportional(poles, self.frf, self.freq, lower_r, upper_r, lower_idx, upper_idx, self.frf_form)
 
         # Scale with the driving point to obtain the modal shapes
         if self.driving_point is not None:
             scale = self.A[self.driving_point]**(0.5)
             self.phi = self.A/scale
 
-        return self.H, self.A
+        return self.frf_reconstructed, self.A
        
     def FRF_reconstruct(self, FRF_ind):
         """
@@ -896,7 +946,7 @@ class Model():
         if not hasattr(self, 'omega'):
             self.omega = 2*np.pi*self.freq
         if not hasattr(self, 'poles'):
-            self.poles = self.all_poles[self.pole_ind[:,0], self.pole_ind[:,1]]
+            self.poles = self.all_poles[self.pole_idx[:,0], self.pole_idx[:,1]]
 
         FRF_true = np.zeros(len(self.omega), complex)
         for n in range(self.A.shape[1]):
@@ -966,8 +1016,8 @@ class Model():
         """
         print('   Nat. f.      Damping')
         print(23*'-')
-        for i, f in enumerate(self.nat_freq):
-            print(f'{i+1}) {f:6.1f}\t{self.nat_xi[i]:5.4f}')
+        for i, f in enumerate(self.natural_freq):
+            print(f'{i+1}) {f:6.1f}\t{self.damping_ratio[i]:5.4f}')
     
     def write_uff(self, filename, name, rsp_dir, ref_dir):
         """
@@ -996,8 +1046,8 @@ class Model():
                 'rsp_dir': rsp_dir,  #0 - scalar
                 'ref_dir': ref_dir,  #0 - scalar
                 'ref_node': 1, #
-                'data': self.nat_freq,
-                'x': np.arange(np.shape(self.nat_freq)[0]) + 1,
+                'data': self.natural_freq,
+                'x': np.arange(np.shape(self.natural_freq)[0]) + 1,
                 'id1': 'id1', 
                 'rsp_ent_name': name,
                 'ref_ent_name': name,
@@ -1014,8 +1064,8 @@ class Model():
                 'rsp_dir': rsp_dir,  #0 - scalar
                 'ref_dir': ref_dir,  #0 - scalar
                 'ref_node': 1, #
-                'data': self.nat_xi,
-                'x': np.arange(np.shape(self.nat_xi)[0]) + 1,
+                'data': self.damping_ratio,
+                'x': np.arange(np.shape(self.damping_ratio)[0]) + 1,
                 'id1': 'id1', 
                 'rsp_ent_name': name,
                 'ref_ent_name': name,
@@ -1069,7 +1119,8 @@ def _irfft_adjusted_lower_limit(x, low_lim, indices):
     return a - b
 
 
-def LSFD_old(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None, *, frf_type=None):
+def LSFD_old(poles, frf, freq, lower_r, upper_r, lower_idx=None, upper_idx=None, frf_form=None, *,
+             frf_type=None, lower_ind=None, upper_ind=None):
     """Identification of the modal constants using the Least-Squares Frequency Domain method.
 
     :param poles: poles, identified with the LSCF
@@ -1077,10 +1128,12 @@ def LSFD_old(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=
     :param freq: the frequency vector [Hz]
     :param lower_r: bool, include the lower residuals
     :param upper_r: bool, include the upper residuals
-    :param lower_ind: the lower frequency limit
-    :param upper_ind: the upper frequency limit
+    :param lower_idx: index of the lower frequency limit
+    :param upper_idx: index of the upper frequency limit
     :param frf_form: type of the FRF, must be 'receptance', 'mobility' or 'accelerance'
     :param frf_type: deprecated; use ``frf_form`` instead.
+    :param lower_ind: deprecated; use ``lower_idx`` instead.
+    :param upper_ind: deprecated; use ``upper_idx`` instead.
     """
     if frf_type is not None:
         warnings.warn(
@@ -1091,9 +1144,27 @@ def LSFD_old(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=
         frf_form = frf_type
     if frf_form is None:
         raise TypeError("LSFD_old() missing required argument: 'frf_form'")
+    if lower_ind is not None:
+        warnings.warn(
+            "lower_ind is deprecated; use lower_idx instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        reject_both('lower_ind', 'lower_idx', lower_idx, None)
+        lower_idx = lower_ind
+    if upper_ind is not None:
+        warnings.warn(
+            "upper_ind is deprecated; use upper_idx instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        reject_both('upper_ind', 'upper_idx', upper_idx, None)
+        upper_idx = upper_ind
+    if lower_idx is None or upper_idx is None:
+        raise TypeError("LSFD_old() missing required arguments: 'lower_idx' and 'upper_idx'")
     nr_poles = len(poles)
-    frf_ = frf[:, lower_ind:upper_ind]
-    freq_ = freq[lower_ind:upper_ind]
+    frf_ = frf[:, lower_idx:upper_idx]
+    freq_ = freq[lower_idx:upper_idx]
 
     TA = TA_construction(poles, freq_, lower_r, upper_r)
     AT = np.linalg.pinv(TA)
@@ -1176,7 +1247,8 @@ def TA_construction(poles, freq, lower_r, upper_r):
     return TA
 
 
-def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None, *, frf_type=None):
+def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_idx=None, upper_idx=None, frf_form=None, *,
+                      frf_type=None, lower_ind=None, upper_ind=None):
     """Identification of the modal constants using the Least-Squares Frequency Domain
     method, where the real-valued modal constants (proportional damping) are assumed.
 
@@ -1185,10 +1257,12 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
     :param freq: the frequency vector [Hz]
     :param lower_r: bool, include the lower residuals
     :param upper_r: bool, include the upper residuals
-    :param lower_ind: the lower frequency limit
-    :param upper_ind: the upper frequency limit
+    :param lower_idx: index of the lower frequency limit
+    :param upper_idx: index of the upper frequency limit
     :param frf_form: type of the FRF, must be 'receptance', 'mobility' or 'accelerance'
     :param frf_type: deprecated; use ``frf_form`` instead.
+    :param lower_ind: deprecated; use ``lower_idx`` instead.
+    :param upper_ind: deprecated; use ``upper_idx`` instead.
     """
     if frf_type is not None:
         warnings.warn(
@@ -1199,6 +1273,24 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
         frf_form = frf_type
     if frf_form is None:
         raise TypeError("LSFD_proportional() missing required argument: 'frf_form'")
+    if lower_ind is not None:
+        warnings.warn(
+            "lower_ind is deprecated; use lower_idx instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        reject_both('lower_ind', 'lower_idx', lower_idx, None)
+        lower_idx = lower_ind
+    if upper_ind is not None:
+        warnings.warn(
+            "upper_ind is deprecated; use upper_idx instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        reject_both('upper_ind', 'upper_idx', upper_idx, None)
+        upper_idx = upper_ind
+    if lower_idx is None or upper_idx is None:
+        raise TypeError("LSFD_proportional() missing required arguments: 'lower_idx' and 'upper_idx'")
     frf = frf.T
 
     omega = 2*np.pi*freq[:, None]
@@ -1254,8 +1346,8 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
    
     # Lower and upper frequency limit mask
     mask = np.zeros(Y.shape[0], dtype=bool)
-    mask[lower_ind:upper_ind] = True
-    mask[frf.shape[0]+lower_ind:frf.shape[0]+upper_ind] = True
+    mask[lower_idx:upper_idx] = True
+    mask[frf.shape[0]+lower_idx:frf.shape[0]+upper_idx] = True
 
     A_ = np.linalg.lstsq(P[mask], Y[mask])[0].T
     # modal constants
@@ -1294,7 +1386,8 @@ def LSFD_proportional(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, 
     return A, FRF_rec, LR, UR
 
 
-def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None, *, frf_type=None):
+def LSFD(poles, frf, freq, lower_r, upper_r, lower_idx=None, upper_idx=None, frf_form=None, *,
+         frf_type=None, lower_ind=None, upper_ind=None):
     """Identification of the modal constants using the Least-Squares Frequency Domain
     method, where the real-valued modal constants (proportional damping) are assumed.
 
@@ -1303,10 +1396,12 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None
     :param freq: the frequency vector [Hz]
     :param lower_r: bool, include the lower residuals
     :param upper_r: bool, include the upper residuals
-    :param lower_ind: the lower frequency limit
-    :param upper_ind: the upper frequency limit
+    :param lower_idx: index of the lower frequency limit
+    :param upper_idx: index of the upper frequency limit
     :param frf_form: type of the FRF, must be 'receptance', 'mobility' or 'accelerance'
     :param frf_type: deprecated; use ``frf_form`` instead.
+    :param lower_ind: deprecated; use ``lower_idx`` instead.
+    :param upper_ind: deprecated; use ``upper_idx`` instead.
     """
     if frf_type is not None:
         warnings.warn(
@@ -1317,6 +1412,24 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None
         frf_form = frf_type
     if frf_form is None:
         raise TypeError("LSFD() missing required argument: 'frf_form'")
+    if lower_ind is not None:
+        warnings.warn(
+            "lower_ind is deprecated; use lower_idx instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        reject_both('lower_ind', 'lower_idx', lower_idx, None)
+        lower_idx = lower_ind
+    if upper_ind is not None:
+        warnings.warn(
+            "upper_ind is deprecated; use upper_idx instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        reject_both('upper_ind', 'upper_idx', upper_idx, None)
+        upper_idx = upper_ind
+    if lower_idx is None or upper_idx is None:
+        raise TypeError("LSFD() missing required arguments: 'lower_idx' and 'upper_idx'")
     frf = frf.T
 
     omega = 2*np.pi*freq[:, None]
@@ -1381,11 +1494,11 @@ def LSFD(poles, frf, freq, lower_r, upper_r, lower_ind, upper_ind, frf_form=None
    
     # Lower and upper frequency limit mask
     mask = np.zeros(Y.shape[0], dtype=bool)
-    mask[lower_ind:upper_ind] = True
-    mask[frf.shape[0]+lower_ind:frf.shape[0]+upper_ind] = True
+    mask[lower_idx:upper_idx] = True
+    mask[frf.shape[0]+lower_idx:frf.shape[0]+upper_idx] = True
 
     # weighted least squares in works
-    # weights = np.tile(np.sqrt(np.arange(lower_ind, upper_ind)), 2) # with sqrt
+    # weights = np.tile(np.sqrt(np.arange(lower_idx, upper_idx)), 2) # with sqrt
     # W = np.diag(weights/np.max(weights))
     # weights = np.tile(np.sum(1/((freq[:, None] - f)**2 + 1e5), axis=1), 2)[mask]
     # W = np.diag(weights/np.max(weights))
