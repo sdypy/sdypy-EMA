@@ -19,8 +19,8 @@ Instance of the ``Model`` class
     a = EMA.Model(
         frf_matrix,
         frequency_array,
-        lower=10,
-        upper=10000,
+        freq_lower=10,
+        freq_upper=10000,
         pol_order_high=60,
         driving_point=3,
         frf_form='accelerance'
@@ -75,8 +75,8 @@ If the ``frf_matrix`` and ``frequency_vector`` are not given, the ``read_uff()``
 .. code:: python
 
     a = EMA.Model(
-        lower=10,
-        upper=10000,
+        freq_lower=10,
+        freq_upper=10000,
         pol_order_high=60,
         driving_point=3,
         frf_form='accelerance'
@@ -159,8 +159,8 @@ Create a new object using different set of FRFs:
     c = EMA.Model(
         frf_matrix,
         frequency_array,
-        lower=10,
-        upper=10000,
+        freq_lower=10,
+        freq_upper=10000,
         pol_order_high=60
     )
 

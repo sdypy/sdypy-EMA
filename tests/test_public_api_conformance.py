@@ -42,7 +42,7 @@ def _build_model_with_modes():
     """Return a Model that has self.A populated (needed for auto_mac)."""
     freq, H1_main = np.load(DATA_FILE, allow_pickle=True)
     FRF = H1_main[:, 1, :]
-    model = EMA.Model(frf=FRF, freq=freq, lower=10, upper=5000, pol_order_high=20)
+    model = EMA.Model(frf=FRF, freq=freq, freq_lower=10, freq_upper=5000, pol_order_high=20)
     model.get_poles(method="lscf", show_progress=False)
     # Use known approximate natural frequencies from test_data
     n_freq = [176, 476, 932, 1534, 2258, 3161, 4180]
@@ -104,7 +104,7 @@ def test_frf_form_no_warning():
     frf, freq = _minimal_frf()
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)
-        m = EMA.Model(frf=frf, freq=freq, lower=50, upper=200, frf_form="receptance")
+        m = EMA.Model(frf=frf, freq=freq, freq_lower=50, freq_upper=200, frf_form="receptance")
     assert m.frf_form == "receptance"
 
 
@@ -112,7 +112,7 @@ def test_frf_type_emits_deprecation_warning():
     frf, freq = _minimal_frf()
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        m = EMA.Model(frf=frf, freq=freq, lower=50, upper=200, frf_type="receptance")
+        m = EMA.Model(frf=frf, freq=freq, freq_lower=50, freq_upper=200, frf_type="receptance")
     dep_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
     assert len(dep_warnings) >= 1
     assert "frf_form" in str(dep_warnings[0].message)
@@ -122,14 +122,14 @@ def test_frf_type_behaves_identically_to_frf_form():
     frf, freq = _minimal_frf()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
-        m_type = EMA.Model(frf=frf, freq=freq, lower=50, upper=200, frf_type="mobility")
-    m_form = EMA.Model(frf=frf, freq=freq, lower=50, upper=200, frf_form="mobility")
+        m_type = EMA.Model(frf=frf, freq=freq, freq_lower=50, freq_upper=200, frf_type="mobility")
+    m_form = EMA.Model(frf=frf, freq=freq, freq_lower=50, freq_upper=200, frf_form="mobility")
     assert m_type.frf_form == m_form.frf_form == "mobility"
 
 
 def test_frf_type_property_warns():
     frf, freq = _minimal_frf()
-    m = EMA.Model(frf=frf, freq=freq, lower=50, upper=200, frf_form="accelerance")
+    m = EMA.Model(frf=frf, freq=freq, freq_lower=50, freq_upper=200, frf_form="accelerance")
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         val = m.frf_type
@@ -177,7 +177,7 @@ def _synthetic_pyfrf_object():
 def test_add_frf_with_pyfrf_object():
     pytest.importorskip("pyFRF")
     frf_obj = _synthetic_pyfrf_object()
-    model = EMA.Model(pyfrf=True, lower=10, upper=400, pol_order_high=5)
+    model = EMA.Model(pyfrf=True, freq_lower=10, freq_upper=400, pol_order_high=5)
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)

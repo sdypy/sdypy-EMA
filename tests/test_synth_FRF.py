@@ -26,7 +26,7 @@ def ema_setup(request):
     freq, FRF, f_nat_true, zeta_true, _ = generate_synth_frf(n_dof)
 
     # pol_order reduced to 30 for CI runtime; suite runtime reduced from 96s to 16s; accuracy assertions unchanged
-    acc = pyEMA.Model(frf=FRF, freq=freq, lower=freq[0], upper=freq[-1], pol_order_high=30)
+    acc = pyEMA.Model(frf=FRF, freq=freq, freq_lower=freq[0], freq_upper=freq[-1], pol_order_high=30)
     acc.get_poles(method=method, show_progress=False)
 
     acc.select_closest_poles(f_nat_true)
@@ -45,20 +45,20 @@ def test_data_shape(ema_setup):
         
     assert acc.A.shape[0] == A.shape[0]
     assert acc.A.shape[1] == A.shape[1]
-    assert acc.H.shape[0] == H.shape[0]
-    assert acc.H.shape[1] == H.shape[1]
+    assert acc.frf_reconstructed.shape[0] == H.shape[0]
+    assert acc.frf_reconstructed.shape[1] == H.shape[1]
 
 
 def test_natural_frequencies(ema_setup):
     acc, _, _, f_nat_true, _ = ema_setup
-    nat_freq = np.array(acc.nat_freq)
+    nat_freq = np.array(acc.natural_freq)
 
     # Check if the natural frequencies are close to the true values
     assert all_close_frequency(nat_freq, f_nat_true)
 
 def test_damping_ratios(ema_setup):
     acc, _, _, _, zeta_true = ema_setup
-    zeta = np.array(acc.nat_xi)
+    zeta = np.array(acc.damping_ratio)
 
     # Check if the damping ratios are close to the true values
     # Using np.allclose with a 2% relative tolerance
@@ -73,13 +73,13 @@ def test_damping_ratios(ema_setup):
 #    acc, A, H, f_nat_true, zeta_true = ema_setup(TestMethod())
 #
 #    print(f"acc.A.shape: {acc.A.shape} vs A.shape: {A.shape}")
-#    print(f"acc.H.shape: {acc.H.shape} vs H.shape: {H.shape}")
+#    print(f"acc.frf_reconstructed.shape: {acc.frf_reconstructed.shape} vs H.shape: {H.shape}")
 #
-#    print(f"acc.nat_freq:{acc.nat_freq} vs f_nat_true: {f_nat_true}")
-#    print(f"error = {(acc.nat_freq - f_nat_true)/ f_nat_true * 100}%")
-#    print(f"combined error = {np.allclose(acc.nat_freq, f_nat_true, atol=1) or np.allclose(acc.nat_freq, f_nat_true, rtol=1e-2)}")
+#    print(f"acc.natural_freq:{acc.natural_freq} vs f_nat_true: {f_nat_true}")
+#    print(f"error = {(acc.natural_freq - f_nat_true)/ f_nat_true * 100}%")
+#    print(f"combined error = {np.allclose(acc.natural_freq, f_nat_true, atol=1) or np.allclose(acc.natural_freq, f_nat_true, rtol=1e-2)}")
 #
-#    print(f"acc.zeta: {acc.nat_xi} vs zeta_true: {zeta_true}")
-#    print(f"error = {(acc.nat_xi - zeta_true) / zeta_true * 100}%")
+#    print(f"acc.zeta: {acc.damping_ratio} vs zeta_true: {zeta_true}")
+#    print(f"error = {(acc.damping_ratio - zeta_true) / zeta_true * 100}%")
 #
-#    print(f"combined error = {np.allclose(acc.nat_xi, zeta_true, rtol=2e-2)}")
+#    print(f"combined error = {np.allclose(acc.damping_ratio, zeta_true, rtol=2e-2)}")

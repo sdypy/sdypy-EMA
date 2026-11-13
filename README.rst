@@ -27,8 +27,8 @@ Make an instance of ``Model`` class:
    a = EMA.Model(
        frf_matrix,
        frequency_array,
-       lower=50,
-       upper=10000,
+       freq_lower=50,
+       freq_upper=10000,
        pol_order_high=60
        )
 
@@ -64,8 +64,8 @@ After the stable poles are selected, the natural frequencies and damping coeffic
 
 .. code:: python
 
-   a.nat_freq # natrual frequencies
-   a.nat_xi # damping coefficients
+   a.natural_freq # natrual frequencies
+   a.damping_ratio # damping coefficients
 
 Reconstruction:
 ~~~~~~~~~~~~~~~
@@ -84,7 +84,7 @@ where **H** is reconstructed FRF matrix and **A** is a matrix of modal constants
 
 .. code:: python
 
-    c = EMA.Model(frf_matrix, frequency_array, lower=50, upper=10000, pol_order_high=60)
+    c = EMA.Model(frf_matrix, frequency_array, freq_lower=50, freq_upper=10000, pol_order_high=60)
 
     H, A = c.get_constants(whose_poles=a)
 
