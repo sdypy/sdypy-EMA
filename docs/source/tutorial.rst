@@ -171,3 +171,30 @@ Compute reconstruction based on poles determined on object ``a``:
     H, A = c.get_constants(whose_poles=a)
 
 
+Poly-reference data
+-------------------
+
+FRFs measured with several references (inputs) are identified with the
+``ModelPoly`` class. The FRF array has the shape
+``(n_outputs, n_frequencies, n_inputs)``:
+
+.. code:: python
+
+    p = EMA.ModelPoly(
+        frf_array,              # (n_outputs, n_frequencies, n_inputs)
+        frequency_array,
+        freq_lower=10,
+        freq_upper=500,
+        pol_order_high=40,
+        driving_point=[0, 5],   # output index at each excitation point, optional
+    )
+    p.get_poles()
+    p.select_closest_poles([22.4, 25.2, 62.8, 63.5, 90.7, 90.8])
+    frf_reconstructed, mode_shape = p.get_constants()
+
+Every pole comes with its modal participation factors
+(``p.participation_factor``, shape ``(n_inputs, n_modes)``); they let
+``ModelPoly`` separate closely spaced modes that a single common denominator
+cannot. With ``driving_point`` given, ``mode_shape`` and
+``participation_factor`` are scaled to unit modal A. For further description,
+see :ref:`code documentation <code-doc-ModelPoly>`.
