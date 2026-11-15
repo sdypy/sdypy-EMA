@@ -165,3 +165,75 @@ def test_single_reference():
     m.get_constants()
     assert all_close_frequency(m.natural_freq, f_nat_true)
     assert all_close_damping(m.damping_ratio, zeta_true)
+
+
+def test_normal_mode(noisy):
+    data, m = noisy
+    real_modes = m.normal_mode()
+    assert real_modes.shape == (6, 6)
+    assert np.isrealobj(real_modes)
+    # the synthetic model has proportional damping: its modes are real
+    for r in range(6):
+        assert mac(real_modes[:, r], data.mode_shape[:, r].real) >= 0.995
+
+
+def test_from_uff(noisy, tmp_path):
+    import pyuff
+    data, _ = noisy
+    nodes, ref_nodes = np.arange(1, 7), [1, 6]
+    filename = tmp_path / 'mimo.uff'
+    uff = pyuff.UFF(str(filename))
+    for i, ref in enumerate(ref_nodes):
+        for o, node in enumerate(nodes):
+            uff.write_sets(pyuff.prepare_58(
+                func_type=4, rsp_node=int(node), rsp_dir=3, ref_node=ref, ref_dir=3,
+                ordinate_spec_data_type=8, data=data.frf[o, :, i], x=data.freq,
+                id1='FRF', rsp_ent_name='name', ref_ent_name='name',
+                abscissa_spacing=1, abscissa_spec_data_type=18, orddenom_spec_data_type=13,
+                abscissa_min=data.freq[0], abscissa_inc=data.freq[1] - data.freq[0]),
+                mode='add')
+    m = ModelPoly.from_uff(str(filename), pol_order_high=POL_ORDER)
+    assert m.outputs == [(int(n), 3) for n in nodes]
+    assert m.inputs == [(1, 3), (6, 3)]
+    assert m.frf_form == 'receptance'
+    np.testing.assert_array_equal(m.driving_point, [0, 5])
+    np.testing.assert_allclose(m.frf, data.frf, rtol=1e-6)
+    m.get_poles(show_progress=False)
+    m.select_closest_poles(data.natural_freq)
+    np.testing.assert_allclose(m.natural_freq, data.natural_freq, rtol=1e-3)
+
+
+def test_from_uff_missing_pair(tmp_path):
+    import pyuff
+    freq = np.linspace(1, 100, 100)
+    filename = tmp_path / 'incomplete.uff'
+    uff = pyuff.UFF(str(filename))
+    for rsp, ref in [(1, 1), (2, 1), (1, 2)]:   # (2, 2) is missing
+        uff.write_sets(pyuff.prepare_58(
+            func_type=4, rsp_node=rsp, rsp_dir=3, ref_node=ref, ref_dir=3,
+            ordinate_spec_data_type=8, data=np.ones(100, dtype=complex), x=freq,
+            id1='FRF', rsp_ent_name='name', ref_ent_name='name',
+            abscissa_spacing=1, abscissa_spec_data_type=18, orddenom_spec_data_type=13,
+            abscissa_min=freq[0], abscissa_inc=freq[1] - freq[0]), mode='add')
+    with pytest.raises(ValueError):
+        ModelPoly.from_uff(str(filename))
+
+
+def test_stabilization_many_poles_per_order():
+    from sdypy.EMA import stabilization
+    # 8 identical poles at each of 3 orders: more than the 2 * n_orders = 6
+    # rows a single-reference model needs
+    poles = 2 * np.pi * np.arange(10., 90., 10.) * (-0.01 + 1j)
+    fn, xi, test_fn, test_xi = stabilization._stabilization([poles] * 3, 3, err_fn=1e-3, err_xi=1e-2)
+    assert fn.shape[0] >= 8
+    # _stabilization compares from the third order on and stores that result
+    # in column 1; every pole repeats one of the previous order
+    assert np.all(test_fn[:8, 1] > 0) and np.all(test_xi[:8, 1] > 0)
+
+
+def test_select_poles_without_qt(noisy, monkeypatch):
+    _, m = noisy
+    # a None entry in sys.modules makes the import raise ImportError
+    monkeypatch.setitem(sys.modules, 'matplotlib.backends.qt_compat', None)
+    with pytest.raises(ImportError, match='sdypy-EMA\\[qt\\]'):
+        m.select_poles()

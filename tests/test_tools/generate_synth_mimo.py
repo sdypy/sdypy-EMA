@@ -11,7 +11,8 @@ response time signals, and the FRFs are estimated with the multiple-input H1
 estimator ``H = G_yx G_xx^-1``.
 
 ``pyLump.Model.get_response`` is not used: its frequency axis starts at
-``df`` instead of 0, so it evaluates the FRF one frequency bin too high.
+``df`` instead of 0, so it evaluates the FRF one frequency bin too high
+(ladisk/pyLump#3).
 """
 from dataclasses import dataclass
 

@@ -49,10 +49,13 @@ def _stabilization(sr, nmax, err_fn, err_xi):
     """
 
     # TODO: check this later for optimisation # this doffers by LSCE and LSCF
-    fn_temp = np.zeros((2*nmax, nmax), dtype='double')
-    xi_temp = np.zeros((2*nmax, nmax), dtype='double')
-    test_fn = np.zeros((2*nmax, nmax), dtype='int')
-    test_xi = np.zeros((2*nmax, nmax), dtype='int')
+    # one row per pole: 2*nmax suffices for a scalar denominator; a
+    # poly-reference model has up to n_inputs times as many poles per order
+    n_rows = max([2*nmax] + [np.size(sr[nr]) for nr in range(min(nmax, len(sr)))])
+    fn_temp = np.zeros((n_rows, nmax), dtype='double')
+    xi_temp = np.zeros((n_rows, nmax), dtype='double')
+    test_fn = np.zeros((n_rows, nmax), dtype='int')
+    test_xi = np.zeros((n_rows, nmax), dtype='int')
 
     for nr, n in enumerate(tqdm(range(nmax), ncols=100)):
         fn, xi = tools.complex_freq_to_freq_and_damp(sr[nr])
@@ -84,8 +87,10 @@ def _stabilization(sr, nmax, err_fn, err_xi):
                 fn_temp[i, n - 1] = fn[i][0]
                 xi_temp[i, n - 1] = xi[i][0]
 
-                test_fn[i, n-1] = np.sum(fn_test[i, :2*n])
-                test_xi[i, n-1] = np.sum(xi_test[i, :2*n])
+                # all poles of the previous order (empty rows hold 1e-10
+                # and never match)
+                test_fn[i, n-1] = np.sum(fn_test[i])
+                test_xi[i, n-1] = np.sum(xi_test[i])
 
     return fn_temp, xi_temp, test_fn, test_xi
 

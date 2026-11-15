@@ -192,6 +192,13 @@ FRFs measured with several references (inputs) are identified with the
     p.select_closest_poles([22.4, 25.2, 62.8, 63.5, 90.7, 90.8])
     frf_reconstructed, mode_shape = p.get_constants()
 
+Instead of ``select_closest_poles``, the poles can be picked on the Qt
+stability chart with ``p.select_poles()`` (needs ``pip install "sdypy-EMA[qt]"``).
+FRFs stored in a UFF file are read with ``EMA.ModelPoly.from_uff(filename, ...)``,
+which arranges them by response and reference node and direction
+(``p.outputs``, ``p.inputs``). Real mode shapes are returned by
+``p.normal_mode()``.
+
 Every pole comes with its modal participation factors
 (``p.participation_factor``, shape ``(n_inputs, n_modes)``); they let
 ``ModelPoly`` separate closely spaced modes that a single common denominator

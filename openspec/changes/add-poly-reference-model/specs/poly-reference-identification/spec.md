@@ -138,3 +138,82 @@ tolerances the test suite applies to `Model` on the same data.
 #### Scenario: Import
 - **WHEN** `from sdypy.EMA import ModelPoly` is executed
 - **THEN** the import succeeds and `ModelPoly` is a class
+
+### Requirement: Interactive pole selection
+
+`select_poles()` SHALL open the Qt stability chart with the poles of every
+model order and the FRFs of all output-input pairs, and on closing SHALL select
+the picked poles with their participation factors and compute the modal
+constants, as `select_closest_poles()` followed by `get_constants()` would.
+
+#### Scenario: Picking poles on the chart
+- **WHEN** four poles are picked on the chart of the noisy synthetic model and the chart is closed
+- **THEN** `natural_freq` holds the four picked natural frequencies, `participation_factor` has shape `(n_inputs, 4)` and `mode_shape` has shape `(n_outputs, 4)`
+
+### Requirement: Existing selection on the chart
+
+When the stability chart opens on a model whose poles are already selected,
+it SHALL show those poles as selected.
+
+#### Scenario: Existing selection
+- **WHEN** the chart opens on a model whose poles were selected with `select_closest_poles`
+- **THEN** those poles are shown as selected
+
+### Requirement: Chart without a Qt binding
+
+`select_poles()` MUST raise `ImportError` naming the Qt extra when no Qt
+binding is installed.
+
+#### Scenario: No Qt binding
+- **WHEN** `select_poles()` is called and the Qt binding cannot be imported
+- **THEN** `ImportError` is raised
+
+### Requirement: FRFs from a UFF file
+
+`ModelPoly.from_uff(filename, **kwargs)` SHALL build the FRF array from the FRFs
+(dataset 58, function type 4) of a UFF file, placing each FRF by its response
+node and direction (output) and its reference node and direction (input), and
+SHALL store them as `(node, direction)` tuples in `outputs` and `inputs`, in
+the order of their first appearance.
+
+#### Scenario: Round trip through a UFF file
+- **WHEN** the noisy synthetic FRFs are written to a UFF file (6 responses, 2 references) and read with `from_uff`
+- **THEN** `frf` equals the written FRFs and `outputs` and `inputs` list the nodes in file order
+
+### Requirement: UFF defaults for FRF form and driving points
+
+Unless given as keyword arguments, `from_uff` SHALL take `frf_form` from the
+file and SHALL set `driving_point` when every input is also an output.
+
+#### Scenario: Driving points from the file
+- **WHEN** the UFF file of the round trip, whose references are also responses, is read without `frf_form` and `driving_point`
+- **THEN** `frf_form` is `'receptance'` and `driving_point` is `[0, 5]`
+
+### Requirement: Missing FRF in a UFF file
+
+`from_uff` MUST raise `ValueError` when an output-input pair has no FRF in the
+file.
+
+#### Scenario: Missing pair
+- **WHEN** a UFF file with two responses and two references lacks one of the four FRFs
+- **THEN** `ValueError` is raised
+
+### Requirement: Normal modes
+
+`normal_mode()` SHALL return the real mode shapes closest to the complex
+`mode_shape`, shape `(n_outputs, n_modes)`.
+
+#### Scenario: Proportionally damped model
+- **WHEN** `normal_mode()` is called after identifying the noisy synthetic model, whose damping is proportional
+- **THEN** the MAC between each returned real mode shape and the model's (real) eigenvector is at least 0.995
+
+### Requirement: Stability classification of many poles per order
+
+The stability classification used by the stability charts SHALL compare every
+pole of a model order with every pole of the previous order, also when an order
+has more poles than twice the number of orders, as a poly-reference model with
+several inputs has.
+
+#### Scenario: More poles than rows of a single-reference chart
+- **WHEN** three model orders of eight identical poles each are classified with three orders
+- **THEN** every pole of the third order is marked stable in frequency and damping

@@ -11,8 +11,8 @@ orthonormal polynomial basis is kept here.
 participation factors, validated on noisy synthetic MIMO data, including a pair
 of closely spaced modes.
 
-**Non-Goals:** stability-chart GUI, UFF reading, `add_frf`, real (normal) mode
-shapes, frequency weighting; changing `Model`.
+**Non-Goals:** the Tk stability chart, `add_frf`, frequency weighting; changing
+`Model`'s behaviour.
 
 ## Decisions
 
@@ -78,7 +78,39 @@ is the steady state `irfft(H(f) X(f))` with `H` from
 measured time signals; FRFs come from a multiple-input H1
 (`H = G_yx G_xx^-1`). `pyLump.Model.get_response` is not used: its frequency
 axis starts at `df` instead of 0 (`np.arange(1, N//2 + 2) * fs/N`), so it
-evaluates the FRF one bin too high; reported to pyLump separately.
+evaluates the FRF one bin too high (ladisk/pyLump#3).
+
+### Stability chart
+
+The Qt chart of `Model` is reused unchanged: `ModelPoly.select_poles()` hands
+it a private view that looks like a single-reference model (poles per order,
+FRFs flattened to `(n_outputs * n_inputs, n_freq)`, `get_constants` returning
+the flattened reconstruction) and provides both the old and the SEP 2
+attribute spellings, so it keeps working when the chart moves to the new
+names. The Tk chart depends on more `Model` internals and is not offered.
+
+`stabilization._stabilization` had `2 * n_orders` rows and compared a pole only
+with the first `2 n` poles of the previous order. A poly-reference order `n`
+has up to `n * n_inputs / 2` poles with positive imaginary part, which exceeds
+both for `n_inputs > 4`. The rows are now sized by the largest pole count and
+every pole of the previous order is compared; empty rows hold `1e-10` and never
+match, so the matrices for `Model` are identical (checked for lscf, lsce, rfp
+and rfp segment on `data/acc_data.npy`).
+
+### Cross-check with other implementations
+
+On the synthetic data set (order 30, 60 poles in every package) `ModelPoly`
+was compared with pyFBS 1.0.7 (`ModalID.p_lscf`, `p_lsfd`, `normalize`) and
+sdynpy 0.24.2 (`PolyPy`). On exact FRFs the three agree to round-off: poles
+within 1e-7 relative, participation-factor MAC 1.000000, residues and
+A-normalized mode shapes within 1e-6. With 2 % and 5 % noise all three
+separate the close pair; `ModelPoly` has the smallest frequency and damping
+errors, and its residue error for the close pair is within about 1.2 times
+the others' over 10 seeds. A deliberately wrong companion matrix (without the
+transpose) leaves the poles unchanged but drops the participation-factor MAC
+to 0.12, so the left-null-vector convention is checked by the tests. The
+comparison scripts are not part of the test suite (both packages are heavy
+optional dependencies).
 
 ## Risks / Trade-offs
 
