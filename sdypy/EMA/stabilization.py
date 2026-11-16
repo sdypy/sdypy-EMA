@@ -30,7 +30,7 @@ def _redundant_values(omega, xi, prec):
     return omega_mod, xi_mod
 
 
-def _stabilization(sr, nmax, err_fn, err_xi):
+def _stabilization(sr, nmax, err_fn, err_xi, conjugate_pairs=True):
     """
     A function that computes the stabilisation matrices needed for the
     stabilisation chart. The computation is focused on comparison of
@@ -41,6 +41,8 @@ def _stabilization(sr, nmax, err_fn, err_xi):
     :param n: maximum number of degrees of freedom
     :param err_fn: relative error in frequency
     :param err_xi: relative error in damping
+    :param conjugate_pairs: the poles of an order come in complex-conjugate
+        pairs, of which one is removed; ``False`` keeps every pole
 
     :return fn_temap eigenfrequencies matrix
     :return xi_temp: updated damping matrix
@@ -59,9 +61,12 @@ def _stabilization(sr, nmax, err_fn, err_xi):
 
     for nr, n in enumerate(tqdm(range(nmax), ncols=100)):
         fn, xi = tools.complex_freq_to_freq_and_damp(sr[nr])
-        # elimination of conjugate values in
-        fn, xi = _redundant_values(fn, xi, 1e-3)
-        # order to decrease computation time
+        # elimination of conjugate values in order to decrease computation time
+        if conjugate_pairs:
+            fn, xi = _redundant_values(fn, xi, 1e-3)
+        else:
+            # same (k, 1) shape as _redundant_values returns
+            fn, xi = np.reshape(fn, (-1, 1)), np.reshape(xi, (-1, 1))
         if n == 1:
             # first step
             fn_temp[0:len(fn), 0:1] = fn

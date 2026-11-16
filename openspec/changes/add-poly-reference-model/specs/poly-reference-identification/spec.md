@@ -217,3 +217,14 @@ several inputs has.
 #### Scenario: More poles than rows of a single-reference chart
 - **WHEN** three model orders of eight identical poles each are classified with three orders
 - **THEN** every pole of the third order is marked stable in frequency and damping
+
+### Requirement: Near-repeated poles on the chart
+
+The stability chart of a `ModelPoly` SHALL show every pole of every model
+order, also when two poles of one order have natural frequencies closer than
+the 0.001 Hz used to remove the conjugate duplicates of a single-reference
+`Model`.
+
+#### Scenario: Two modes 0.0005 Hz apart
+- **WHEN** the noise-free FRFs of two inputs and two modes at 50 Hz and 50.0005 Hz with orthogonal mode shapes are identified up to model order 20 and classified for the chart
+- **THEN** the chart classification holds two poles within 0.2 Hz of 50 Hz at the highest order

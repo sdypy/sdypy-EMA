@@ -231,6 +231,40 @@ def test_stabilization_many_poles_per_order():
     assert np.all(test_fn[:8, 1] > 0) and np.all(test_xi[:8, 1] > 0)
 
 
+
+def near_repeated_model(split=0.0005, pol_order_high=20):
+    """Noise-free FRFs of two inputs, two modes ``split`` Hz apart at 50 Hz."""
+    freq = np.linspace(30, 70, 4001)
+    omega = 2 * np.pi * freq
+    zeta = 0.005
+    x = np.arange(6)
+    phi_a, phi_b = np.cos(np.pi * x / 6), np.sin(np.pi * x / 6)
+    frf = np.zeros((6, len(freq), 2), dtype=complex)
+    for f0, phi in [(50.0, phi_a), (50.0 + split, phi_b), (62.0, phi_a + phi_b)]:
+        wr = 2 * np.pi * f0
+        s = -zeta * wr + 1j * wr * np.sqrt(1 - zeta**2)
+        a = np.outer(phi, phi[[1, 4]])[:, None, :]
+        jw = 1j * omega[None, :, None]
+        frf += a / (jw - s) + a / (jw - s.conjugate())
+    m = ModelPoly(frf, freq, freq_lower=35, freq_upper=65, pol_order_high=pol_order_high)
+    m.get_poles(show_progress=False)
+    return m
+
+
+def test_stabilization_near_repeated_poles():
+    from sdypy.EMA import stabilization
+    m = near_repeated_model()
+    n_orders = len(m.all_poles)
+    near = {}
+    for conjugate_pairs in (True, False):
+        fn, *_ = stabilization._stabilization(m.all_poles, n_orders, err_fn=0.01, err_xi=0.05,
+                                              conjugate_pairs=conjugate_pairs)
+        # the last column of the stabilization matrix stays empty
+        near[conjugate_pairs] = np.sum(np.abs(fn[:, -2] - 50) < 0.2)
+    assert near[False] == 2
+    assert near[True] == 1      # the single-reference conjugate filter merges them
+
+
 def test_select_poles_without_qt(noisy, monkeypatch):
     _, m = noisy
     # a None entry in sys.modules makes the import raise ImportError

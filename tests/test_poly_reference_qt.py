@@ -18,6 +18,7 @@ from sdypy.EMA.poly_reference import _StabilityChartView
 from sdypy.EMA.pole_picking_qt import SelectPolesQt, QtWidgets
 
 from test_tools.generate_synth_mimo import generate_synth_mimo
+from test_poly_reference import near_repeated_model
 
 
 @pytest.fixture(scope="module")
@@ -55,4 +56,12 @@ def test_existing_selection_is_shown(qapp):
     model.select_closest_poles(data.natural_freq)
     window = SelectPolesQt(_StabilityChartView(model))
     assert len(window.selected) == 6
+    window.close()
+
+
+def test_chart_shows_near_repeated_poles(qapp):
+    model = near_repeated_model()
+    window = SelectPolesQt(_StabilityChartView(model))
+    highest = window._k == len(model.all_poles) - 1
+    assert np.sum(highest & (np.abs(window._f - 50) < 0.2)) == 2
     window.close()

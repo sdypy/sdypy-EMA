@@ -11,6 +11,7 @@
 - [x] 1.7 `ModelPoly.from_uff()`: FRF array, `outputs`, `inputs`, `frf_form`, `driving_point`
 - [x] 1.8 `normal_mode()`
 - [x] 1.9 `stabilization._stabilization`: rows sized by the pole count, all previous poles compared; results for `Model` unchanged
+- [x] 1.10 `_stabilization(conjugate_pairs=False)` for the `ModelPoly` chart: no conjugate filter, so near-repeated poles are kept
 
 ## 2. Tests (verifiers for REQUIREMENTS.md)
 
@@ -27,6 +28,7 @@
 - [x] 2.11 FRFs from a UFF file and its defaults → `::test_from_uff`; missing FRF → `::test_from_uff_missing_pair`
 - [x] 2.12 Normal modes → `::test_normal_mode`
 - [x] 2.13 Stability classification of many poles per order → `::test_stabilization_many_poles_per_order`
+- [x] 2.14 Near-repeated poles on the chart → `::test_stabilization_near_repeated_poles`; `tests/test_poly_reference_qt.py::test_chart_shows_near_repeated_poles`
 
 ## 3. Documentation
 

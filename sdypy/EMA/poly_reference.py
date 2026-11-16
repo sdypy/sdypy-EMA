@@ -482,6 +482,9 @@ class _StabilityChartView:
         self.upper = self.freq_upper = model.freq_upper
         self.pol_order_high = model.pol_order_high
         self.n_bands = 1
+        # ModelPoly keeps only poles with positive imaginary part: the chart
+        # must not remove near-equal poles as conjugate duplicates
+        self.conjugate_pairs = False
         self.len_band = len(model.freq)
         self._selection = []
         self._natural_freq = []
