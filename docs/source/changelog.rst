@@ -1,6 +1,12 @@
 Change log
 ==========
 
+Unreleased
+----------
+
+- New `ModelPoly` class for poly-reference (MIMO) FRFs of shape `(n_outputs, n_freq, n_inputs)`: poles and modal participation factors with the poly-reference LSCF (pLSCF) method, pole selection, and mode shapes with an LSFD that uses the participation factors. Separates closely spaced modes that `Model` merges. Builds on the single-reference pLSCF of draft PR #17.
+- `stabilization._stabilization` takes `conjugate_pairs`; the `ModelPoly` stability chart sets it to `False`, so two poles closer than 0.001 Hz are both shown.
+
 Version 0.31
 ------------
 

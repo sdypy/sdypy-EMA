@@ -258,7 +258,8 @@ class SelectPolesQt(QtWidgets.QMainWindow):
         with warnings.catch_warnings(), contextlib.redirect_stderr(io.StringIO()):
             warnings.simplefilter('ignore', RuntimeWarning)
             fn, xi, test_fn, test_xi = stabilization._stabilization(
-                self.Model.all_poles, self._n_orders, err_fn=self.fn_tol, err_xi=self.xi_tol)
+                self.Model.all_poles, self._n_orders, err_fn=self.fn_tol, err_xi=self.xi_tol,
+                conjugate_pairs=getattr(self.Model, 'conjugate_pairs', True))
 
         rows, cols = np.nonzero(fn > 1e-6)  # skip the zero padding
         stable_fn = test_fn[rows, cols] > 0
