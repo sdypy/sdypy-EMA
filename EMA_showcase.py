@@ -40,7 +40,7 @@ plt.title("Measured FRFs")
 
 # %%
 
-acc = EMA.Model(frf=FRF, freq=freq, lower=10, upper=5000, pol_order_high=60)
+acc = EMA.Model(frf=FRF, freq=freq, freq_lower=10, freq_upper=5000, pol_order_high=60)
 acc.get_poles(method=METHOD)
 
 # %%
@@ -79,12 +79,18 @@ with warnings.catch_warnings():
     warnings.simplefilter("always", DeprecationWarning)
 
     # Model: `frf_form` (new) replaces `frf_type` (old)
-    acc_new = EMA.Model(frf=FRF, freq=freq, lower=10, upper=5000, frf_form="accelerance")
-    acc_old = EMA.Model(frf=FRF, freq=freq, lower=10, upper=5000, frf_type="accelerance")  # DeprecationWarning
+    acc_new = EMA.Model(frf=FRF, freq=freq, freq_lower=10, freq_upper=5000, frf_form="accelerance")
+    acc_old = EMA.Model(frf=FRF, freq=freq, freq_lower=10, freq_upper=5000, frf_type="accelerance")  # DeprecationWarning
     print(acc_new.frf_form, acc_old.frf_form)
 
     # `auto_mac` (new) replaces `autoMAC` (old)
     print(np.array_equal(acc.auto_mac(), acc.autoMAC()))  # DeprecationWarning
+
+    # Later SEP 2 renames: `freq_lower`/`freq_upper` replace `lower`/`upper`, and
+    # `natural_freq`/`damping_ratio` replace `nat_freq`/`nat_xi`
+    acc_old = EMA.Model(frf=FRF, freq=freq, lower=10, upper=5000)  # DeprecationWarning
+    print(acc_old.freq_lower, acc_old.freq_upper)
+    print(np.array_equal(acc.natural_freq, acc.nat_freq))  # DeprecationWarning
 
 # %%
 

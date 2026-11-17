@@ -4,6 +4,13 @@ Change log
 Unreleased
 ----------
 
+- Public names renamed to the SEP 2 spellings. The old names still work but raise a `DeprecationWarning`; they are removed in version 2.0.
+
+  - `Model(lower=, upper=)` → `freq_lower`, `freq_upper` (also the attributes); `Model.get_constants(f_lower=, f_upper=)` → `freq_lower`, `freq_upper`.
+  - `Model.nat_freq` → `natural_freq`, `Model.nat_xi` → `damping_ratio`, `Model.pole_xi` → `pole_damping_ratio`, `Model.pole_ind` → `pole_idx`.
+  - `Model.H` and `SelectPolesQt.H` (reconstructed FRFs) → `frf_reconstructed`.
+  - `LSFD`, `LSFD_proportional` and `LSFD_old`: `lower_ind=`, `upper_ind=` → `lower_idx`, `upper_idx`.
+
 - New `ModelPoly` class for poly-reference (MIMO) FRFs of shape `(n_outputs, n_freq, n_inputs)`: poles and modal participation factors with the poly-reference LSCF (pLSCF) method, pole selection, and mode shapes with an LSFD that uses the participation factors. Separates closely spaced modes that `Model` merges. Builds on the single-reference pLSCF of draft PR #17.
 - `stabilization._stabilization` takes `conjugate_pairs`; the `ModelPoly` stability chart sets it to `False`, so two poles closer than 0.001 Hz are both shown.
 

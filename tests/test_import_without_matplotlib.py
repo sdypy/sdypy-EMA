@@ -34,12 +34,12 @@ for r in range(3):
     frf += np.outer(phi[:, r] * phi[0, r],
                     1 / (w_n[r]**2 - w**2 + 2j * xi[r] * w_n[r] * w))
 
-m = EMA.Model(frf=frf, freq=freq, lower=5, upper=500, pol_order_high=30)
+m = EMA.Model(frf=frf, freq=freq, freq_lower=5, freq_upper=500, pol_order_high=30)
 m.get_poles(show_progress=False)
 m.select_closest_poles([70, 200, 290])
 H, A = m.get_constants()
-np.testing.assert_allclose(m.nat_freq, f_nat, rtol=1e-3)
-np.testing.assert_allclose(m.nat_xi, xi, rtol=5e-2)
+np.testing.assert_allclose(m.natural_freq, f_nat, rtol=1e-3)
+np.testing.assert_allclose(m.damping_ratio, xi, rtol=5e-2)
 assert EMA.MAC(A[:, :3], A[:, :3]).shape == (3, 3)
 assert m.auto_mac().shape == (3, 3)
 

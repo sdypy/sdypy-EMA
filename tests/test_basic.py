@@ -22,7 +22,7 @@ def ema_setup(request):
     freq, H1_main = np.load(data_file, allow_pickle=True)
     FRF = H1_main[:,1,:]
     # pol_order reduced to 30 for CI runtime; suite runtime reduced from 96s to 16s; accuracy assertions unchanged
-    acc = pyEMA.Model(frf=FRF, freq=freq, lower=10, upper=5000, pol_order_high=30)
+    acc = pyEMA.Model(frf=FRF, freq=freq, freq_lower=10, freq_upper=5000, pol_order_high=30)
 
     acc.get_poles(method=method, show_progress=False)
 
@@ -42,13 +42,13 @@ def test_data_shape(ema_setup):
     
     assert acc.A.shape[0] == A.shape[0]
     assert acc.A.shape[1] == A.shape[1]
-    assert acc.H.shape[0] == H.shape[0]
-    assert acc.H.shape[1] == H.shape[1]
+    assert acc.frf_reconstructed.shape[0] == H.shape[0]
+    assert acc.frf_reconstructed.shape[1] == H.shape[1]
 
 
 def test_natural_frequencies(ema_setup):
     acc, A, H = ema_setup
-    nat_freq = np.array(acc.nat_freq)
+    nat_freq = np.array(acc.natural_freq)
 
     # Check if the natural frequencies are close to the true values
     # Specific criterion is abstracted way to the test_tools module
