@@ -10,6 +10,15 @@ The ``Model`` class
     :members:
 
 
+.. _code-doc-ModelPoly:
+
+The ``ModelPoly`` class
+-----------------------
+
+.. autoclass:: sdypy.EMA.ModelPoly
+    :members:
+
+
 Stable pole selection
 ---------------------
 
