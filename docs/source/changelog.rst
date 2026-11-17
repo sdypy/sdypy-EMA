@@ -1,8 +1,8 @@
 Change log
 ==========
 
-Unreleased
-----------
+Version 0.32
+------------
 
 - Public names renamed to the SEP 2 spellings. The old names still work but raise a `DeprecationWarning`; they are removed in version 2.0.
 
