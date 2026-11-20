@@ -88,6 +88,46 @@ where **H** is reconstructed FRF matrix and **A** is a matrix of modal constants
 
     H, A = c.get_constants(whose_poles=a)
 
+Poly-reference (MIMO) identification
+------------------------------------
+
+FRFs measured with several references (inputs) at the same time are identified
+with the ``ModelPoly`` class. The FRF array has the shape
+``(n_outputs, n_freq, n_inputs)``:
+
+.. code:: python
+
+    p = EMA.ModelPoly(
+        frf_array,              # (n_outputs, n_freq, n_inputs)
+        frequency_array,
+        freq_lower=10,
+        freq_upper=500,
+        pol_order_high=40,
+        driving_point=[0, 5],   # output index at each reference, optional
+    )
+    p.get_poles()
+    p.select_closest_poles([22.4, 25.2, 62.8, 63.5, 90.7, 90.8])  # or p.select_poles()
+    frf_reconstructed, mode_shape = p.get_constants()
+
+The poles come from the poly-reference LSCF method (pLSCF, PolyMAX), each with
+its modal participation factors (``p.participation_factor``, shape
+``(n_inputs, n_modes)``). This lets ``ModelPoly`` separate closely spaced modes
+that ``Model`` merges into one. The mode shapes come from an LSFD fit that uses
+the participation factors; with ``driving_point`` given, they are scaled to
+unit modal A. FRFs stored in a UFF file are read with
+``EMA.ModelPoly.from_uff(filename)``.
+
+Showcases
+---------
+
+- ``EMA Showcase.ipynb`` (script version ``EMA_showcase.py``): single-reference
+  identification of a measured beam with ``Model``.
+- ``ModelPoly Showcase.ipynb`` (script version ``ModelPoly_showcase.py``):
+  poly-reference identification of a simulated MIMO test with closely spaced
+  modes, compared with ``Model``. The test is simulated with the other ``sdypy``
+  packages (lumped model, excitation, FRF estimation), so it needs
+  ``pip install sdypy``.
+
 .. |Docs Status| image:: https://readthedocs.org/projects/sdypy-ema/badge/
    :target: https://sdypy-ema.readthedocs.io/
 .. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4016671.svg?

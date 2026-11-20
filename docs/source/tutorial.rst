@@ -205,3 +205,5 @@ Every pole comes with its modal participation factors
 cannot. With ``driving_point`` given, ``mode_shape`` and
 ``participation_factor`` are scaled to unit modal A. For further description,
 see :ref:`code documentation <code-doc-ModelPoly>`.
+A complete example with a pair of closely spaced modes is in the
+`ModelPoly showcase notebook <https://github.com/sdypy/sdypy-EMA/blob/main/ModelPoly%20Showcase.ipynb>`_.
